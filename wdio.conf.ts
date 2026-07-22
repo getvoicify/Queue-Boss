@@ -40,7 +40,9 @@ export const config: WebdriverIO.Config = {
   reporters: ["spec"],
   mochaOpts: {
     ui: "bdd",
-    timeout: 60000,
+    // 3 min: the external tauri-driver provider has no embedded window-focus
+    // plugin, so the service's per-command focus hook adds ~5s per focus command.
+    timeout: 180000,
   },
   logLevel: "warn",
 };

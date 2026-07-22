@@ -30,5 +30,5 @@
 }
 
 .connection-status__prefix {
-  color: var(--qb-fg-subtle);
+  color: var(--qb-fg-muted);
 }

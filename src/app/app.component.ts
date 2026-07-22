@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component } from "@angular/core";
+import { ChangeDetectionStrategy, Component, inject } from "@angular/core";
+import { ConnectionFacade } from "./core/facades/connection.facade";
 import { ShellComponent } from "./shell/shell.component";
 
 @Component({
@@ -8,4 +9,6 @@ import { ShellComponent } from "./shell/shell.component";
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./app.component.css",
 })
-export class AppComponent {}
+export class AppComponent {
+  protected readonly status = inject(ConnectionFacade).status;
+}

@@ -6,7 +6,11 @@ mod state;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use qb_core::{BackendInfo, JobDetail, JobFilter, JobSummary, Page, QueueSummary, SystemClock};
+use qb_backends::SandboxBackend;
+use qb_core::{
+    BackendInfo, Clock, JobDetail, JobFilter, JobSummary, Page, QueueBackend, QueueSummary,
+    SystemClock,
+};
 use tauri::ipc::Channel;
 use tauri::State;
 
@@ -16,7 +20,10 @@ use crate::commands::{
 };
 use crate::counts::QueueCounts;
 use crate::poller::{poll_loop, DEFAULT_POLL_INTERVAL_MS};
-use crate::state::AppState;
+use crate::state::{AppState, ConnectionId};
+
+/// Seed for the default in-memory sandbox backend registered at startup.
+const SANDBOX_SEED: u64 = 0xC0FFEE;
 
 #[tauri::command]
 async fn test_connection(
@@ -76,14 +83,22 @@ async fn subscribe_counts(
     })
 }
 
+/// Assemble the Tauri-managed application state with the default backends.
+fn build_app_state() -> AppState {
+    let clock: Arc<dyn Clock> = Arc::new(SystemClock);
+    let mut backends: HashMap<ConnectionId, Arc<dyn QueueBackend>> = HashMap::new();
+    backends.insert(
+        "sandbox".to_owned(),
+        Arc::new(SandboxBackend::new(clock.clone(), SANDBOX_SEED)) as Arc<dyn QueueBackend>,
+    );
+    AppState::new(backends, clock)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // E1 boots with no connections; C8 registers the default "sandbox" backend.
-    let app_state = AppState::new(HashMap::new(), Arc::new(SystemClock));
-
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .manage(app_state)
+        .manage(build_app_state())
         .invoke_handler(tauri::generate_handler![
             test_connection,
             list_queues,
@@ -93,4 +108,23 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn default_state_registers_a_resolvable_healthy_sandbox() {
+        let state = build_app_state();
+        let backend = state
+            .backend("sandbox")
+            .expect("default state must register the sandbox backend");
+        let info = backend
+            .test_connection()
+            .await
+            .expect("sandbox backend must report healthy");
+        assert_eq!(info.name, "sandbox");
+        assert!(info.healthy);
+    }
 }
