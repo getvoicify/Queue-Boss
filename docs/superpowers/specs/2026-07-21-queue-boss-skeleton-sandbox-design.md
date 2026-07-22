@@ -2,7 +2,7 @@
 
 **Product:** Queue Boss (getvoicify/Queue-Boss) — teaching-first, read-only desktop inspector for background job queues.
 **Epic:** 1 of the MVP program (E1 Skeleton & Sandbox → E2 pg-boss v10 Read Path → {E3 Hero + Teaching, E4 Cross-platform Release}).
-**Source:** the Queue Boss MVP PRD (Draft v0.2) — the external product brief of record (not committed to this repo); this spec scopes its **Milestone 1**.
+**Source:** [Queue Boss MVP PRD](../../queue-boss-mvp-prd.md) (Draft v0.2) — the product brief of record; this spec scopes its **Milestone 1**.
 **Board:** org Project #3. **Planning:** self-hosted in this repo.
 
 ---
