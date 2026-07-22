@@ -1,9 +1,9 @@
 import { ChangeDetectionStrategy, Component } from "@angular/core";
-import { RouterOutlet } from "@angular/router";
+import { ShellComponent } from "./shell/shell.component";
 
 @Component({
   selector: "app-root",
-  imports: [RouterOutlet],
+  imports: [ShellComponent],
   templateUrl: "./app.component.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./app.component.css",

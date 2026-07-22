@@ -1,13 +1,11 @@
-:root {
-  color-scheme: dark;
-}
+@import "styles/tokens.css";
 
 html,
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: #0d1117;
-  color: #e6edf3;
+  background-color: var(--qb-bg);
+  color: var(--qb-fg);
   font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
