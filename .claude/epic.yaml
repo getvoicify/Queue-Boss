@@ -35,8 +35,6 @@ merge:
     - lint
     - test
     - build (ubuntu-latest)
-    - build (macos-latest)
-    - build (windows-latest)
     - e2e                      # Linux e2e (WebdriverIO + tauri-driver under xvfb); CI job OWNED by C2, spec/wiring from C8 (launch-smoke spec + wdio.conf from C1)
   strict_up_to_date: true
   required_approvals: 0        # claude-review's fail-closed check IS the approval gate; no CodeRabbit-as-approver yet (unlike gangan). Revisit if CodeRabbit is added.
@@ -64,6 +62,13 @@ merge:
     bot and — with required_approvals: 0 — must be MANUALLY reviewed by a maintainer and are
     NEVER driver-auto-merged. Hardening (an always-run guard job, or requiring 1 human
     approval on fork PRs) is deferred to the OSS-contributor-flow work (E4+).
+    CI COST REBALANCE (2026-07-22, issue #14): PRs now gate on Linux only. The full
+    macOS/Windows 3-OS build moved OUT of per-PR CI into the nightly
+    `.github/workflows/nightly-crossplatform.yml` (change-gated cron at 06:00 UTC +
+    workflow_dispatch). `build (macos-latest)` / `build (windows-latest)` are therefore
+    NO LONGER required checks (removed above) — a macOS/Windows-only regression is caught
+    by the nightly, not at PR time. The nightly is intentionally NOT a required check
+    (a red nightly is the visible signal, not a merge blocker).
 
 docs:
   spec_dir: docs/superpowers/specs
@@ -119,8 +124,13 @@ gates:
     hook: pre-review
     required_when: "child touches the build, packaging, CI workflows, or the platform crate"
     procedure: |
-      The build must succeed on macOS, Windows, AND Linux (the CI matrix). For platform-crate
-      changes, note the OS-specific behavior actually exercised. A red matrix on any OS ->
-      park (do NOT merge a build that only passes on one platform). (C1 exception: it predates
-      the CI matrix — a single-OS local build plus a PR-body note satisfies it for C1 only; the
-      full 3-OS matrix is required from C2 onward.)
+      The build must succeed on macOS, Windows, AND Linux. As of 2026-07-22 (issue #14) the
+      full 3-OS matrix runs as the NIGHTLY (.github/workflows/nightly-crossplatform.yml —
+      change-gated cron + workflow_dispatch), which stays required-green for the epic's
+      cross-platform confidence + E4 packaging; per-PR gating is Linux-only (`build
+      (ubuntu-latest)`). For a child that touches build/packaging/CI/platform-crate, confirm
+      the latest nightly is green (or trigger it via workflow_dispatch and confirm) before
+      merging — a red nightly on any OS -> park (do NOT merge a build that only passes on one
+      platform). For platform-crate changes, note the OS-specific behavior actually exercised.
+      (C1 exception: it predates the CI matrix — a single-OS local build plus a PR-body note
+      satisfies it for C1 only; the full 3-OS coverage via the nightly is required from C2 onward.)
