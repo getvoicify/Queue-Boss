@@ -22,10 +22,11 @@ toolchain:
     (SandboxBackend now; PgBossBackend in Epic 2), package `qb-platform` (OS-specific
     seams — keychain etc., stubbed in Epic 1), wired by the `src-tauri` binary crate.
     These commands become live once child C1 (scaffold) lands — they are the intended
-    contract the scaffold must satisfy. Honor repo CLAUDE.md: strict outside-in TDD
-    (NON-NEGOTIABLE), strictly-declarative Angular, minimal code comments (tests are the
-    documentation of record), Conventional Commits with NO AI-attribution trailers, and
-    context-mode routing. `cargo mutants` output is already anticipated by .gitignore.
+    contract the scaffold must satisfy. Project conventions (also enforced by the gate
+    catalog below and this repo's PR gates): strict outside-in TDD (NON-NEGOTIABLE),
+    strictly-declarative Angular, minimal code comments (tests are the documentation of
+    record), Conventional Commits with NO AI-attribution trailers, and context-mode routing
+    (no raw curl/wget). `cargo mutants` output is already anticipated by .gitignore.
 
 merge:
   method: squash
@@ -42,12 +43,15 @@ merge:
   require_last_push_approval: false
   required_review_thread_resolution: true
   notes: |
-    main starts UNPROTECTED (verified 2026-07-21, HTTP 404 on branch protection).
+    main has a BASELINE protection as of 2026-07-22 (require PR, conversation resolution,
+    block force-push/deletion, 0 approvals, and NO required status checks yet).
     Child C2 both (a) creates .github/workflows/claude-review.yml — replicated from
     gangan-api's, prompt re-scoped to the Rust/Angular/Tauri stack, job id `claude-review`,
     gated via `if: github.event.pull_request.head.repo.full_name == github.repository &&
-    github.event.pull_request.draft == false` so external FORK PRs skip it — and (b) enables
-    branch protection with the required checks above + thread resolution. ORDERING GUARD:
+    github.event.pull_request.draft == false` so external FORK PRs skip it — and (b) UPDATES
+    the existing baseline protection to ADD the required status checks above (claude-review
+    + the CI matrix) once those workflows exist — never require a check that does not yet
+    exist, or PRs wedge at 'Expected'. ORDERING GUARD:
     C1 (scaffold) merges UNGATED because the protection cannot require a workflow that does
     not exist yet; gating switches on from C2 (whose own PR is reviewed by the workflow it
     adds). The build-matrix check NAMES above are provisional — reconcile them against C2's
