@@ -1,10 +1,13 @@
 mod backend;
+pub mod clock;
+pub mod conformance;
 mod error;
 mod model;
 mod page;
 pub mod testing;
 
 pub use backend::QueueBackend;
+pub use clock::{Clock, ManualClock, SystemClock};
 pub use error::BackendError;
 pub use model::{
     oldest_waiting_age, BackendInfo, Capabilities, JobDetail, JobFilter, JobId, JobState,
