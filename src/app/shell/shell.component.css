@@ -1,0 +1,31 @@
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 100vh;
+  background: var(--qb-bg);
+  color: var(--qb-fg);
+}
+
+.app-shell__header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 1.25rem;
+  border-block-end: 1px solid var(--qb-border);
+  background: var(--qb-surface);
+}
+
+.app-shell__brand {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--qb-fg);
+}
+
+.app-shell__status {
+  margin-inline-start: auto;
+}
+
+.app-shell__main {
+  flex: 1;
+  padding: 1.5rem;
+}

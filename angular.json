@@ -77,7 +77,8 @@
           "options": {
             "buildTarget": "queue-boss:build:development",
             "tsConfig": "tsconfig.spec.json",
-            "runner": "vitest"
+            "runner": "vitest",
+            "setupFiles": ["src/testing/setup-axe.ts"]
           }
         }
       }

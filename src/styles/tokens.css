@@ -1,0 +1,26 @@
+:root {
+  color-scheme: dark;
+
+  --qb-bg: #0d1117;
+  --qb-surface: #161b22;
+  --qb-surface-hover: #1f2630;
+  --qb-border: #30363d;
+  --qb-fg: #e6edf3;
+  --qb-fg-muted: #9da7b3;
+  --qb-fg-subtle: #6e7781;
+  --qb-accent: #2f81f7;
+
+  /* Per-JobState colors consumed by StateColorDirective via --qb-state-color. */
+  --qb-state-created: #6e7781;
+  --qb-state-active: #2f81f7;
+  --qb-state-completed: #3fb950;
+  --qb-state-failed: #f85149;
+  --qb-state-cancelled: #8b949e;
+  --qb-state-retry: #d29922;
+  --qb-state-deadLetter: #a371f7;
+
+  /* Connection-status indicator colors. */
+  --qb-status-connected: #3fb950;
+  --qb-status-connecting: #d29922;
+  --qb-status-error: #f85149;
+}

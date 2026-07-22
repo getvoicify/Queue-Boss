@@ -1,0 +1,28 @@
+.primary-nav {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.primary-nav__link {
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  color: var(--qb-fg-muted);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.primary-nav__link:hover {
+  color: var(--qb-fg);
+  background: var(--qb-surface-hover);
+}
+
+.primary-nav__link:focus-visible {
+  outline: 2px solid var(--qb-accent);
+  outline-offset: 2px;
+}
+
+.primary-nav__link--active {
+  color: var(--qb-fg);
+  background: var(--qb-surface);
+}

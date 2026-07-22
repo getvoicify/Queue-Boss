@@ -1,0 +1,34 @@
+.connection-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--qb-border);
+  border-radius: 999px;
+  background: var(--qb-surface);
+  font-size: 0.8125rem;
+  color: var(--qb-fg-muted);
+}
+
+.connection-status__dot {
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: 50%;
+  background: var(--qb-fg-muted);
+}
+
+.connection-status[data-status="connected"] .connection-status__dot {
+  background: var(--qb-status-connected);
+}
+
+.connection-status[data-status="connecting"] .connection-status__dot {
+  background: var(--qb-status-connecting);
+}
+
+.connection-status[data-status="error"] .connection-status__dot {
+  background: var(--qb-status-error);
+}
+
+.connection-status__prefix {
+  color: var(--qb-fg-subtle);
+}

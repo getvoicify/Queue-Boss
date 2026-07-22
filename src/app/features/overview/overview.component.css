@@ -1,0 +1,33 @@
+.overview {
+  display: block;
+}
+
+.overview__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.overview__table caption {
+  text-align: left;
+  padding-block-end: 0.75rem;
+  font-weight: 600;
+  color: var(--qb-fg);
+}
+
+.overview__table th,
+.overview__table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-block-end: 1px solid var(--qb-border);
+}
+
+.overview__table thead th {
+  color: var(--qb-fg-muted);
+  font-weight: 500;
+  font-size: 0.8125rem;
+}
+
+.overview__num {
+  text-align: right;
+}
