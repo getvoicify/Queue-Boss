@@ -1,0 +1,126 @@
+# Repo-level config for the epic-driver plugin (/epic, /epic:create, /epic:migrate).
+# Onboarded for Queue Boss (getvoicify/Queue-Boss) on 2026-07-21.
+# Per-epic config (incl. `project`) lives in the epic issue body, homed in THIS repo
+# (self-hosted planning — not the gangan planning repo). Queue Boss tracks on org
+# Project #3 ("Queue Boss"); epic-config carries `project: 3`.
+
+repo: getvoicify/Queue-Boss
+
+toolchain:
+  runtime: tauri2-angular-rust
+  prefix: ""
+  test: npm run test:ci        # Angular headless (Vitest) + `cargo test --workspace` (Cargo workspace)
+  lint: npm run lint           # biome/eslint + prettier --check + `cargo clippy -D warnings` + `cargo fmt --check`
+  build: npm run tauri:build   # `cargo tauri build` — bundles the Angular SPA into the Tauri shell
+  e2e: npm run e2e             # WebdriverIO + tauri-driver (drives the built desktop app)
+  mutation: cargo mutants --workspace   # backs the rust-mutation-coverage gate
+  notes: |
+    Tauri 2 shell + Angular 22 SPA in the webview. Rust is a Cargo WORKSPACE with a
+    core/platform split (dirs `crates/{core,backends,platform}`; package names carry a
+    `qb-` prefix to avoid shadowing Rust's builtin `core`): package `qb-core` / lib
+    `qb_core` (QueueBackend trait + domain model, platform-agnostic), package `qb-backends`
+    (SandboxBackend now; PgBossBackend in Epic 2), package `qb-platform` (OS-specific
+    seams — keychain etc., stubbed in Epic 1), wired by the `src-tauri` binary crate.
+    These commands become live once child C1 (scaffold) lands — they are the intended
+    contract the scaffold must satisfy. Project conventions (also enforced by the gate
+    catalog below and this repo's PR gates): strict outside-in TDD (NON-NEGOTIABLE),
+    strictly-declarative Angular, minimal code comments (tests are the documentation of
+    record), Conventional Commits with NO AI-attribution trailers, and context-mode routing
+    (no raw curl/wget). `cargo mutants` output is already anticipated by .gitignore.
+
+merge:
+  method: squash
+  required_checks:
+    - claude-review            # PRIMARY quality gate — fail-closed, same-repo (non-fork) PRs only
+    - lint
+    - test
+    - build (ubuntu-latest)
+    - build (macos-latest)
+    - build (windows-latest)
+    - e2e                      # Linux e2e (WebdriverIO + tauri-driver under xvfb); CI job OWNED by C2, spec/wiring from C8 (launch-smoke spec + wdio.conf from C1)
+  strict_up_to_date: true
+  required_approvals: 0        # claude-review's fail-closed check IS the approval gate; no CodeRabbit-as-approver yet (unlike gangan). Revisit if CodeRabbit is added.
+  require_last_push_approval: false
+  required_review_thread_resolution: true
+  notes: |
+    main has a BASELINE protection as of 2026-07-22 (require PR, conversation resolution,
+    block force-push/deletion, 0 approvals, and NO required status checks yet).
+    Child C2 both (a) creates .github/workflows/claude-review.yml — replicated from
+    gangan-api's, prompt re-scoped to the Rust/Angular/Tauri stack, job id `claude-review`,
+    gated via `if: github.event.pull_request.head.repo.full_name == github.repository &&
+    github.event.pull_request.draft == false` so external FORK PRs skip it — and (b) UPDATES
+    the existing baseline protection to ADD the required status checks above (claude-review
+    + the CI matrix) once those workflows exist — never require a check that does not yet
+    exist, or PRs wedge at 'Expected'. ORDERING GUARD:
+    C1 (scaffold) merges UNGATED because the protection cannot require a workflow that does
+    not exist yet; gating switches on from C2 (whose own PR is reviewed by the workflow it
+    adds). The build-matrix check NAMES above are provisional — reconcile them against C2's
+    actual CI job names before enabling protection. ANTHROPIC_API_KEY = the getvoicify org
+    secret, widened to include this PUBLIC repo (operator action; org secrets with
+    visibility=private are otherwise invisible to public repos).
+    FORK-PR GATING GAP (documented; hardening deferred): fork PRs SKIP claude-review via
+    the workflow's job-level `if` (head.repo.full_name == github.repository). GitHub may
+    treat a SKIPPED required check as SATISFIED, so external fork PRs are NOT gated by the
+    bot and — with required_approvals: 0 — must be MANUALLY reviewed by a maintainer and are
+    NEVER driver-auto-merged. Hardening (an always-run guard job, or requiring 1 human
+    approval on fork PRs) is deferred to the OSS-contributor-flow work (E4+).
+
+docs:
+  spec_dir: docs/superpowers/specs
+  runbook_dir: docs/superpowers/plans
+
+worktrees:
+  root: .worktrees              # gitignored; driver child branches use the epic's worktree_prefix
+  max_concurrent: 3
+
+# Custom-gate catalog. `required_when` is matched per child by the driver's pre-review step.
+gates:
+  tdd-evidence:
+    hook: pre-review
+    required_when: "every child that adds or changes production behavior (Rust or Angular)"
+    procedure: |
+      NON-NEGOTIABLE, and it gates every behavioral child. The PR must demonstrate the
+      outside-in TDD cycle: a test written FIRST that failed for the right reason (red),
+      then the minimal change to green, then refactor while green. Start at the layer
+      closest to the user (component/integration/e2e) and drop to a unit test only when the
+      outer test cannot reach the behavior. Evidence = the guarding test exists, covers the
+      new behavior, and the PR body names it. New behavior without a failing-first test ->
+      park. Tests are the documentation of record; keep code comments minimal.
+  rust-mutation-coverage:
+    hook: pre-review
+    required_when: "child adds or changes Rust logic under core/, backends/, platform/, or src-tauri command handlers"
+    procedure: |
+      Run `cargo mutants` on the changed crate(s)/modules. Surviving mutants on NEW logic
+      must be triaged: kill (add a test) or justify explicitly in the PR body. Unjustified
+      surviving mutants on changed lines -> park. (This is the teeth behind tdd-evidence for
+      the Rust core/adapters — the OSS contributor judges the adapter seam by its tests.)
+  ng-declarative-purity:
+    hook: pre-review
+    required_when: "child adds or changes Angular components, facades, directives, or pipes"
+    procedure: |
+      Presentational components carry ZERO business logic and make NO service or Tauri
+      calls: state flows IN via signals/inputs, events OUT via outputs. ALL Tauri access is
+      confined to the interface service; app/presentation state to facades; presentational
+      logic to directives/pipes. Strictly declarative — signals over imperative
+      subscriptions, no logic leaking into templates. A presentational component containing
+      business logic, an injected data service, or a direct `invoke()` call -> park.
+  a11y-audit:
+    hook: pre-review
+    required_when: "child adds or changes a user-facing screen or affordance"
+    procedure: |
+      Run axe (or equivalent) against the new/changed screen; no serious/critical
+      violations. Controls keyboard-reachable and labelled. NOTE on tooling: component-level
+      `vitest-axe` runs in jsdom, so it verifies structure, labels, and keyboard-reachability
+      but CANNOT evaluate color-contrast (no real render). Color-contrast against the dark
+      theme is verified in C8 by running axe against the REAL webview (WDIO/tauri-driver), or
+      by a documented manual contrast check in the PR body. An unfixable serious violation
+      within budget -> park.
+  xplat-build-smoke:
+    hook: pre-review
+    required_when: "child touches the build, packaging, CI workflows, or the platform crate"
+    procedure: |
+      The build must succeed on macOS, Windows, AND Linux (the CI matrix). For platform-crate
+      changes, note the OS-specific behavior actually exercised. A red matrix on any OS ->
+      park (do NOT merge a build that only passes on one platform). (C1 exception: it predates
+      the CI matrix — a single-OS local build plus a PR-body note satisfies it for C1 only; the
+      full 3-OS matrix is required from C2 onward.)
