@@ -1,5 +1,19 @@
+mod backend;
+mod error;
+mod model;
+mod page;
+pub mod testing;
+
+pub use backend::QueueBackend;
+pub use error::BackendError;
+pub use model::{
+    oldest_waiting_age, BackendInfo, Capabilities, JobDetail, JobFilter, JobId, JobState,
+    JobSummary, Json, QueueSummary, RetryReadout, Seconds, TimeWindow, TimelineEvent,
+};
+pub use page::{decode_cursor, encode_cursor, Cursor, Page};
+
 pub fn version() -> &'static str {
-    "0.1.0"
+    env!("CARGO_PKG_VERSION")
 }
 
 #[cfg(test)]
