@@ -1,0 +1,77 @@
+name: Nightly cross-platform build
+
+# macOS + Windows packaging / cross-platform smoke. As of 2026-07-22 (issue #14)
+# PRs gate on Linux only (see .github/workflows/ci.yml); this nightly is where a
+# macOS/Windows-only regression is caught. NOT a required check — a red nightly is
+# the visible signal. The `changes` gate skips the (expensive) build when no
+# relevant code changed since the previous run; workflow_dispatch always runs it.
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: nightly-crossplatform
+  cancel-in-progress: false
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine whether relevant paths changed
+        id: gate
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "workflow_dispatch: forcing run=true"
+            exit 0
+          fi
+          changed=$(git log --since="26 hours ago" --oneline -- \
+            'crates/**' \
+            'src-tauri/**' \
+            'Cargo.toml' \
+            'Cargo.lock' \
+            'src/**' \
+            'package.json' \
+            'package-lock.json' \
+            'angular.json' \
+            'tsconfig*.json' \
+            '.github/workflows/**')
+          if [ -n "$changed" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "Relevant changes in the last 26h -> run=true"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No relevant changes in the last 26h -> run=false"
+          fi
+
+  build:
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: npm ci
+
+      - run: npm run tauri:build

@@ -1,10 +1,13 @@
 name: CI
 
-# Cross-platform build + quality matrix. Job/matrix names are load-bearing:
+# Per-PR quality + Linux build gate. Job/matrix names are load-bearing:
 # they are wired into main's branch protection as required checks
 # (see .claude/epic.yaml `merge.required_checks`). GitHub reports the matrix
-# `build` job per-OS as `build (ubuntu-latest)` / `build (macos-latest)` /
-# `build (windows-latest)`, so this file's job ids MUST NOT drift.
+# `build` job per-OS as `build (ubuntu-latest)`, so this file's job ids MUST NOT
+# drift. As of 2026-07-22 (issue #14) PRs gate on Linux only; the macOS/Windows
+# 3-OS build moved to the change-gated nightly (.github/workflows/nightly-crossplatform.yml).
+# `build` is kept a single-element matrix (NOT a plain job) so the check name
+# stays `build (ubuntu-latest)`.
 
 on:
   pull_request:
@@ -79,7 +82,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
