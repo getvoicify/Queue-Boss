@@ -2595,6 +2595,7 @@ name = "queue-boss"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "qb-backends",
  "qb-core",
  "serde",
  "serde_json",
