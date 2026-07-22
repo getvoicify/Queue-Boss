@@ -1,17 +1,12 @@
 // WebdriverIO config for Queue Boss desktop e2e.
-//
-// Driver provider defaults to `external` (tauri-driver) — C2's Linux CI job
-// installs tauri-driver + webkit2gtk-driver and runs this suite headless under
-// xvfb. tauri-driver is Windows+Linux only, so local macOS runs need either
-// tauri-driver on a supported OS or WDIO_TAURI_PROVIDER=embedded (which further
-// requires registering tauri-plugin-wdio-webdriver in the app — deferred).
-//
-// The app binary path is the repo-ROOT `target/release/<bin>` — the Cargo
-// workspace relocates the target dir to the repo root (A3).
+// `driverProvider` + `appBinaryPath` live in the @wdio/tauri-service SERVICE options;
+// `external` drives tauri-driver (Linux CI). tauri-driver and WebKitWebDriver are
+// auto-detected; WDIO_TAURI_DRIVER / WDIO_NATIVE_DRIVER pin those paths when set.
 const driverProvider = (process.env.WDIO_TAURI_PROVIDER ?? "external") as
-  | "embedded"
   | "external"
-  | "crabnebula";
+  | "official"
+  | "crabnebula"
+  | "embedded";
 const application = process.env.WDIO_TAURI_APP ?? "./target/release/queue-boss";
 
 export const config: WebdriverIO.Config = {
@@ -20,13 +15,27 @@ export const config: WebdriverIO.Config = {
   maxInstances: 1,
   capabilities: [
     {
+      browserName: "tauri",
       "tauri:options": {
         application,
-        driverProvider,
       },
     },
   ],
-  services: ["@wdio/tauri-service"],
+  services: [
+    [
+      "@wdio/tauri-service",
+      {
+        driverProvider,
+        appBinaryPath: application,
+        ...(process.env.WDIO_TAURI_DRIVER
+          ? { tauriDriverPath: process.env.WDIO_TAURI_DRIVER }
+          : {}),
+        ...(process.env.WDIO_NATIVE_DRIVER
+          ? { nativeDriverPath: process.env.WDIO_NATIVE_DRIVER }
+          : {}),
+      },
+    ],
+  ],
   framework: "mocha",
   reporters: ["spec"],
   mochaOpts: {
