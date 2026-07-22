@@ -2594,11 +2594,14 @@ version = "0.1.0"
 name = "queue-boss"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "qb-core",
  "serde",
  "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-opener",
+ "tokio",
 ]
 
 [[package]]
