@@ -101,6 +101,28 @@ describe("JobListComponent", () => {
     expect(selected).toHaveBeenCalledWith("job-1");
   });
 
+  it("marks the row as an interactive button for screen readers", () => {
+    const row = render(jobs).nativeElement.querySelector(
+      '[data-testid="job-row"]',
+    );
+    expect(row.getAttribute("role")).toBe("button");
+  });
+
+  it("selects and prevents page scroll on space keydown", () => {
+    const fixture = render(jobs);
+    const selected = vi.fn();
+    fixture.componentInstance.select.subscribe(selected);
+    const row = fixture.nativeElement.querySelector('[data-testid="job-row"]');
+    const event = new KeyboardEvent("keydown", {
+      key: " ",
+      cancelable: true,
+      bubbles: true,
+    });
+    row.dispatchEvent(event);
+    expect(selected).toHaveBeenCalledWith("job-1");
+    expect(event.defaultPrevented).toBe(true);
+  });
+
   it("emits a state filter when the filter control changes", () => {
     const fixture = render(jobs);
     const changed = vi.fn();

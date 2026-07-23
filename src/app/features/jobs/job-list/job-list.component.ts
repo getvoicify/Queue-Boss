@@ -67,12 +67,13 @@ const JOB_STATE_LABELS: Record<JobState, string> = {
           @for (job of jobs(); track job.id) {
             <tr
               data-testid="job-row"
+              role="button"
               [appStateColor]="job.state"
               tabindex="0"
               [attr.aria-label]="'View job ' + job.id"
               (click)="select.emit(job.id)"
               (keydown.enter)="select.emit(job.id)"
-              (keydown.space)="select.emit(job.id)"
+              (keydown.space)="$event.preventDefault(); select.emit(job.id)"
             >
               <td [attr.data-testid]="'job-id-' + job.id">{{ job.id }}</td>
               <td>{{ labels[job.state] }}</td>
