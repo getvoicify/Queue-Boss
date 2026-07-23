@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use qb_core::{Clock, QueueBackend};
+use qb_platform::SecretStore;
 use tokio::task::AbortHandle;
 
 use crate::commands::CommandError;
@@ -9,22 +10,27 @@ use crate::commands::CommandError;
 pub type ConnectionId = String;
 
 /// Tauri-managed application state: the resolvable backends, the wall clock the
-/// poller stamps snapshots with, and the live poll tasks keyed by connection.
+/// poller stamps snapshots with, the live poll tasks keyed by connection, and
+/// the OS-keychain-backed secret store for connection credentials.
 pub struct AppState {
     pub backends: HashMap<ConnectionId, Arc<dyn QueueBackend>>,
     pub clock: Arc<dyn Clock>,
     pub tasks: Mutex<HashMap<ConnectionId, AbortHandle>>,
+    #[allow(dead_code)] // read by connection-credential commands in a later child.
+    pub secrets: Arc<dyn SecretStore>,
 }
 
 impl AppState {
     pub fn new(
         backends: HashMap<ConnectionId, Arc<dyn QueueBackend>>,
         clock: Arc<dyn Clock>,
+        secrets: Arc<dyn SecretStore>,
     ) -> Self {
         Self {
             backends,
             clock,
             tasks: Mutex::new(HashMap::new()),
+            secrets,
         }
     }
 
@@ -61,17 +67,35 @@ mod tests {
 
     use qb_core::testing::FakeBackend;
     use qb_core::ManualClock;
+    use qb_platform::{InMemorySecretStore, SecretStoreError};
 
     use super::*;
 
     fn empty_state() -> AppState {
-        AppState::new(HashMap::new(), Arc::new(ManualClock::new(0)))
+        AppState::new(
+            HashMap::new(),
+            Arc::new(ManualClock::new(0)),
+            Arc::new(InMemorySecretStore::new()),
+        )
     }
 
     fn state_with_fake() -> AppState {
         let mut backends: HashMap<ConnectionId, Arc<dyn QueueBackend>> = HashMap::new();
         backends.insert("sandbox".to_owned(), Arc::new(FakeBackend::new()));
-        AppState::new(backends, Arc::new(ManualClock::new(0)))
+        AppState::new(
+            backends,
+            Arc::new(ManualClock::new(0)),
+            Arc::new(InMemorySecretStore::new()),
+        )
+    }
+
+    #[test]
+    fn secrets_get_absent_key_returns_none() {
+        let state = empty_state();
+        assert_eq!(
+            state.secrets.get("absent"),
+            Ok::<Option<String>, SecretStoreError>(None)
+        );
     }
 
     #[test]

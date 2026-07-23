@@ -111,6 +111,7 @@ mod tests {
 
     use qb_core::testing::FakeBackend;
     use qb_core::{Clock, ManualClock, QueueBackend};
+    use qb_platform::InMemorySecretStore;
 
     use super::*;
     use crate::state::AppState;
@@ -119,7 +120,7 @@ mod tests {
         let mut backends: HashMap<String, Arc<dyn QueueBackend>> = HashMap::new();
         backends.insert("sandbox".to_owned(), Arc::new(FakeBackend::new()));
         let clock: Arc<dyn Clock> = Arc::new(ManualClock::new(0));
-        AppState::new(backends, clock)
+        AppState::new(backends, clock, Arc::new(InMemorySecretStore::new()))
     }
 
     #[test]
