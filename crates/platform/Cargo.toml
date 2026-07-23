@@ -5,3 +5,6 @@ edition = "2021"
 
 [lib]
 name = "qb_platform"
+
+[dependencies]
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
