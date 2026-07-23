@@ -66,7 +66,7 @@ The hero is a standalone Angular 22 `LifecycleDiagramComponent` built from **pur
 | 6 | retry.left → active.bottom (custom, **DASHED**) | active | **FLOW** | `M 248 344 C 180 344, 180 154, 323 198` |
 | 7 | retry.bottom → deadLetter.top | deadLetter | no | `M 323 388 C 349 388, 349 402, 375 402` |
 
-Edge 4 is the custom "active cancels" bow (`active.right.y + 18`); edge 5 the "failed retries" hook; edge 6 the **"retry re-enters active"** loop, rendered `stroke-dasharray: 5 5`. Every edge is a `<path fill="none" stroke="var(--border-strong)" stroke-width="1.5" opacity="0.85">` with `marker-end` pointing at one reusable `<marker id="qb-arrow">` (filled triangle in `--border-strong`, `orient="auto-start-reverse"`); the dashed edge adds the dash array.
+Edge 4 is the custom "active cancels" bow (`active.right.y + 18`); edge 5 the "failed retries" hook; edge 6 the **"retry re-enters active"** loop, rendered `stroke-dasharray: 5 5`. Every edge is a `<path fill="none" stroke="var(--qb-border-strong)" stroke-width="1.5" opacity="0.85">` with `marker-end` pointing at one reusable `<marker id="qb-arrow">` (filled triangle in `--qb-border-strong`, `orient="auto-start-reverse"`); the dashed edge adds the dash array.
 
 **Animation — the important part.**
 - **Edge flow.** For each *flowing* edge (1, 2, 3, 6) render a `<circle r="4" fill="var(--qb-state-<name>-solid)">` containing `<animateMotion path="<the edge's EXACT d>" repeatCount="indefinite">`. Durations stagger: **`dur = 1.6 + (i % 3) * 0.4` s** where **`i` is the 0-based index over the *filtered* flowing edges** (the 4 flowing edges → durations **1.6 / 2.0 / 2.4 / 1.6**), **not** the raw edge index — so the tokens read as organic traffic, not a metronome.
