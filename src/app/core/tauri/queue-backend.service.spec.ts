@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { QueueCounts } from "../models";
+import type { PgConnectConfig, QueueCounts } from "../models";
 import { QueueBackendService } from "./queue-backend.service";
 
 interface RawChannelMessage {
@@ -120,6 +120,41 @@ describe("QueueBackendService", () => {
     captured?.({ message: sampleCounts, index: 0 });
 
     expect(subscription.counts()).toEqual(sampleCounts);
+  });
+
+  it("invokes connect_pgboss with the config envelope and returns the id", async () => {
+    invokeMock.mockResolvedValueOnce("pgboss");
+    const config: PgConnectConfig = {
+      connectionString: "postgres://localhost/pgboss",
+    };
+    const id = await service.connectPgboss(config);
+    expect(lastInvoke()).toEqual({
+      command: "connect_pgboss",
+      args: { config },
+    });
+    expect(id).toBe("pgboss");
+  });
+
+  it("invokes disconnect with the camelCase connectionId", async () => {
+    invokeMock.mockResolvedValueOnce(undefined);
+    await service.disconnect("pgboss");
+    expect(lastInvoke()).toEqual({
+      command: "disconnect",
+      args: { connectionId: "pgboss" },
+    });
+  });
+
+  it("surfaces the sanitized CommandError when connect_pgboss rejects", async () => {
+    invokeMock.mockRejectedValueOnce({
+      kind: "connection",
+      message: "database is not reachable",
+    });
+    await expect(
+      service.connectPgboss({ connectionString: "x" }),
+    ).rejects.toEqual({
+      kind: "connection",
+      message: "database is not reachable",
+    });
   });
 
   it("normalizes a typed CommandError rejection unchanged", async () => {

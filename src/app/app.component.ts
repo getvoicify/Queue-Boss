@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from "@angular/core";
-import { ConnectionFacade } from "./core/facades/connection.facade";
+import { ConnectionsFacade } from "./core/facades/connections.facade";
 import { ShellComponent } from "./shell/shell.component";
 
 @Component({
@@ -10,5 +10,5 @@ import { ShellComponent } from "./shell/shell.component";
   styleUrl: "./app.component.css",
 })
 export class AppComponent {
-  protected readonly status = inject(ConnectionFacade).status;
+  protected readonly connections = inject(ConnectionsFacade).entries;
 }

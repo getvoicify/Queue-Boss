@@ -1,6 +1,7 @@
 import { signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ConnectionsFacade } from "../../core/facades/connections.facade";
 import type { QueueCounts } from "../../core/models";
 import { QueueBackendService } from "../../core/tauri/queue-backend.service";
 import { OverviewContainerComponent } from "./overview-container.component";
@@ -28,20 +29,19 @@ describe("OverviewContainerComponent", () => {
   const source = signal<QueueCounts | null>(null);
   const stop = vi.fn();
   const subscribeCounts = vi.fn(() => ({ counts: source.asReadonly(), stop }));
-  const testConnection = vi.fn(() =>
-    Promise.resolve({ name: "sandbox", healthy: true }),
-  );
+  const active = signal("sandbox");
 
   beforeEach(async () => {
     source.set(null);
+    active.set("sandbox");
     subscribeCounts.mockClear();
-    testConnection.mockClear();
     await TestBed.configureTestingModule({
       imports: [OverviewContainerComponent],
       providers: [
+        { provide: QueueBackendService, useValue: { subscribeCounts } },
         {
-          provide: QueueBackendService,
-          useValue: { subscribeCounts, testConnection },
+          provide: ConnectionsFacade,
+          useValue: { activeConnectionId: active.asReadonly() },
         },
       ],
     }).compileComponents();
@@ -62,7 +62,7 @@ describe("OverviewContainerComponent", () => {
     expect(el.querySelectorAll('[data-testid="queue-row"]').length).toBe(0);
   });
 
-  it("connects both facades and streams live counts into the overview on Enter Sandbox", () => {
+  it("streams live sandbox counts into the overview on Enter Sandbox", () => {
     const fixture = render();
     const el = fixture.nativeElement as HTMLElement;
 
@@ -71,7 +71,6 @@ describe("OverviewContainerComponent", () => {
     ).click();
     fixture.detectChanges();
 
-    expect(testConnection).toHaveBeenCalledWith("sandbox");
     expect(subscribeCounts).toHaveBeenCalledWith("sandbox");
     expect(el.querySelector('[data-testid="enter-sandbox"]')).toBeNull();
 
@@ -87,5 +86,21 @@ describe("OverviewContainerComponent", () => {
     expect(
       el.querySelector('[data-testid="depth-emails"]')?.textContent?.trim(),
     ).toBe("3");
+  });
+
+  it("rekeys the overview to the active connection's counts without Enter", () => {
+    const fixture = render();
+    const el = fixture.nativeElement as HTMLElement;
+
+    active.set("pgboss");
+    fixture.detectChanges();
+
+    expect(subscribeCounts).toHaveBeenCalledWith("pgboss");
+    expect(el.querySelector('[data-testid="enter-sandbox"]')).toBeNull();
+
+    source.set(liveCounts);
+    fixture.detectChanges();
+
+    expect(el.querySelectorAll('[data-testid="queue-row"]').length).toBe(2);
   });
 });

@@ -8,6 +8,7 @@ import type {
   JobFilter,
   JobSummary,
   Page,
+  PgConnectConfig,
   QueueCounts,
   QueueSummary,
 } from "../models";
@@ -23,6 +24,14 @@ export interface CountsSubscription {
 export class QueueBackendService {
   testConnection(connectionId: string): Promise<BackendInfo> {
     return this.#invoke<BackendInfo>("test_connection", { connectionId });
+  }
+
+  connectPgboss(config: PgConnectConfig): Promise<string> {
+    return this.#invoke<string>("connect_pgboss", { config });
+  }
+
+  disconnect(connectionId: string): Promise<void> {
+    return this.#invoke<void>("disconnect", { connectionId });
   }
 
   listQueues(connectionId: string): Promise<QueueSummary[]> {

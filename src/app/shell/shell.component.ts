@@ -1,9 +1,7 @@
 import { ChangeDetectionStrategy, Component, input } from "@angular/core";
 import { RouterOutlet } from "@angular/router";
-import {
-  type ConnectionStatus,
-  ConnectionStatusComponent,
-} from "./connection-status/connection-status.component";
+import type { ConnectionEntry } from "../core/models";
+import { ConnectionStatusComponent } from "./connection-status/connection-status.component";
 import { PrimaryNavComponent } from "./primary-nav/primary-nav.component";
 
 @Component({
@@ -16,7 +14,15 @@ import { PrimaryNavComponent } from "./primary-nav/primary-nav.component";
       <header class="app-shell__header">
         <span class="app-shell__brand">Queue Boss</span>
         <app-primary-nav />
-        <app-connection-status class="app-shell__status" [status]="status()" />
+        <div class="app-shell__status">
+          @for (connection of connections(); track connection.id) {
+            <app-connection-status
+              [connectionId]="connection.id"
+              [status]="connection.status"
+              [message]="connection.message"
+            />
+          }
+        </div>
       </header>
       <main class="app-shell__main">
         <router-outlet />
@@ -25,5 +31,7 @@ import { PrimaryNavComponent } from "./primary-nav/primary-nav.component";
   `,
 })
 export class ShellComponent {
-  readonly status = input<ConnectionStatus>("idle");
+  readonly connections = input<ConnectionEntry[]>([
+    { id: "sandbox", status: "idle" },
+  ]);
 }

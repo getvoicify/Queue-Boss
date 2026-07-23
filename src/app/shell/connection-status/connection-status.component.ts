@@ -4,8 +4,7 @@ import {
   computed,
   input,
 } from "@angular/core";
-
-export type ConnectionStatus = "idle" | "connecting" | "connected" | "error";
+import type { ConnectionStatus } from "../../core/models";
 
 const STATUS_LABELS: Record<ConnectionStatus, string> = {
   idle: "Idle",
@@ -21,20 +20,29 @@ const STATUS_LABELS: Record<ConnectionStatus, string> = {
   template: `
     <div
       class="connection-status"
-      data-testid="connection-status"
+      [attr.data-testid]="'connection-status-' + connectionId()"
       [attr.data-status]="status()"
     >
       <span class="connection-status__dot" aria-hidden="true"></span>
       <span class="connection-status__text" role="status">
-        <span class="connection-status__prefix">Connection:</span>
+        <span class="connection-status__prefix">{{ connectionId() }}:</span>
         <span class="connection-status__label" data-testid="connection-label">{{
           label()
         }}</span>
+        @if (message(); as detail) {
+          <span
+            class="connection-status__message"
+            data-testid="connection-message"
+            >{{ detail }}</span
+          >
+        }
       </span>
     </div>
   `,
 })
 export class ConnectionStatusComponent {
   readonly status = input.required<ConnectionStatus>();
+  readonly connectionId = input.required<string>();
+  readonly message = input<string>();
   protected readonly label = computed(() => STATUS_LABELS[this.status()]);
 }

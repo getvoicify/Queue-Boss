@@ -4,6 +4,8 @@ export type {
   CommandError,
   CommandErrorKind,
 } from "./backend";
+export type { PgConnectConfig } from "./connect-config";
+export type { ConnectionEntry, ConnectionStatus } from "./connection";
 export type {
   JobDetail,
   JobFilter,

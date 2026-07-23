@@ -3,7 +3,7 @@ import { TestBed } from "@angular/core/testing";
 import { provideRouter } from "@angular/router";
 import { beforeEach, describe, expect, it } from "vitest";
 import { AppComponent } from "./app.component";
-import { ConnectionFacade } from "./core/facades/connection.facade";
+import { ConnectionsFacade } from "./core/facades/connections.facade";
 
 describe("AppComponent", () => {
   beforeEach(async () => {
@@ -22,15 +22,25 @@ describe("AppComponent", () => {
     expect(shell).not.toBeNull();
   });
 
-  it("binds the connection facade status into the shell", () => {
-    TestBed.overrideProvider(ConnectionFacade, {
-      useValue: { status: signal("connecting").asReadonly() },
+  it("renders a per-connection status chip from the facade entries", () => {
+    TestBed.overrideProvider(ConnectionsFacade, {
+      useValue: {
+        entries: signal([
+          { id: "sandbox", status: "connecting" as const },
+        ]).asReadonly(),
+      },
     });
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
-    const label = fixture.nativeElement.querySelector(
-      '[data-testid="connection-label"]',
+    const chip = fixture.nativeElement.querySelector(
+      '[data-testid="connection-status-sandbox"]',
     );
-    expect(label.textContent.trim()).toBe("Connecting…");
+    expect(chip).not.toBeNull();
+    expect(chip.getAttribute("data-status")).toBe("connecting");
+    expect(
+      fixture.nativeElement
+        .querySelector('[data-testid="connection-label"]')
+        .textContent.trim(),
+    ).toBe("Connecting…");
   });
 });

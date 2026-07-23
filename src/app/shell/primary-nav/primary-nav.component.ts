@@ -26,6 +26,15 @@ import { RouterLink, RouterLinkActive } from "@angular/router";
       >
         Lifecycle
       </a>
+      <a
+        class="primary-nav__link"
+        data-testid="open-connect"
+        routerLink="/connect"
+        routerLinkActive="primary-nav__link--active"
+        ariaCurrentWhenActive="page"
+      >
+        Connect
+      </a>
     </nav>
   `,
 })
