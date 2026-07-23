@@ -4,7 +4,7 @@
 #![cfg(feature = "pg-integration")]
 
 use qb_backends::pgboss::{seed, PgBossBackend};
-use qb_core::conformance::assert_queue_conformance;
+use qb_core::conformance::assert_static_conformance;
 use qb_core::{BackendError, JobState, QueueBackend};
 use sqlx::PgPool;
 use testcontainers::runners::AsyncRunner;
@@ -27,13 +27,14 @@ async fn boot() -> (ContainerAsync<Postgres>, PgPool) {
 }
 
 #[tokio::test]
-async fn pgboss_backend_conforms_to_the_queue_suite_and_reports_fixture_shape() {
+async fn pgboss_backend_conforms_to_the_static_suite_and_reports_fixture_shape() {
     let (_container, pool) = boot().await;
     seed::seed_v10(&pool).await.expect("seed v10 fixture");
     let backend = PgBossBackend::new(pool);
 
-    // The E2-1 queue half is the executable spec (touches only list_queues).
-    assert_queue_conformance(&backend).await;
+    // The clock-free static suite is the executable spec: the queue half then
+    // the job half (list_jobs/get_job).
+    assert_static_conformance(&backend).await;
 
     // Explicit fixture-shape assertions pin the DeadLetter CASE and the
     // oldest-waiting predicate that the sum invariant alone cannot catch.
