@@ -2,16 +2,20 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
+  signal,
 } from "@angular/core";
-import { ConnectionFacade } from "../../core/facades/connection.facade";
+import {
+  ConnectionsFacade,
+  SANDBOX_CONNECTION_ID,
+} from "../../core/facades/connections.facade";
 import { QueuesFacade } from "../../core/facades/queues.facade";
 import { OverviewComponent } from "./overview.component";
 
-const SANDBOX_CONNECTION_ID = "sandbox";
-
-// Overview route container: binds the connection/queues facades to the dumb
-// `app-overview`. All logic stays in the facades — this only wires intents.
+// Overview route container: rekeys the queues facade off the facade's
+// `activeConnectionId`. The sandbox still requires an explicit Enter click; a
+// real connection auto-subscribes when it becomes active.
 @Component({
   selector: "app-overview-container",
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -36,14 +40,24 @@ const SANDBOX_CONNECTION_ID = "sandbox";
 })
 export class OverviewContainerComponent {
   protected readonly queues = inject(QueuesFacade);
-  readonly #connection = inject(ConnectionFacade);
-  protected readonly showEnter = computed(() => {
-    const status = this.#connection.status();
-    return status === "idle" || status === "error";
-  });
+  readonly #connections = inject(ConnectionsFacade);
+  readonly #active = this.#connections.activeConnectionId;
+  readonly #entered = signal(false);
+  protected readonly showEnter = computed(
+    () => this.#active() === SANDBOX_CONNECTION_ID && !this.#entered(),
+  );
+
+  constructor() {
+    effect(() => {
+      const id = this.#active();
+      if (id !== SANDBOX_CONNECTION_ID) {
+        this.queues.connect(id);
+      }
+    });
+  }
 
   enter(): void {
-    void this.#connection.connect(SANDBOX_CONNECTION_ID);
     this.queues.connect(SANDBOX_CONNECTION_ID);
+    this.#entered.set(true);
   }
 }

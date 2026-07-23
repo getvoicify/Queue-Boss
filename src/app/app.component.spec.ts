@@ -3,7 +3,7 @@ import { TestBed } from "@angular/core/testing";
 import { provideRouter } from "@angular/router";
 import { beforeEach, describe, expect, it } from "vitest";
 import { AppComponent } from "./app.component";
-import { ConnectionFacade } from "./core/facades/connection.facade";
+import { ConnectionsFacade } from "./core/facades/connections.facade";
 
 describe("AppComponent", () => {
   beforeEach(async () => {
@@ -22,9 +22,12 @@ describe("AppComponent", () => {
     expect(shell).not.toBeNull();
   });
 
-  it("binds the connection facade status into the shell", () => {
-    TestBed.overrideProvider(ConnectionFacade, {
-      useValue: { status: signal("connecting").asReadonly() },
+  it("binds the active connection's status into the shell", () => {
+    TestBed.overrideProvider(ConnectionsFacade, {
+      useValue: {
+        activeConnectionId: signal("sandbox").asReadonly(),
+        statusFor: () => ({ status: "connecting" }),
+      },
     });
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();

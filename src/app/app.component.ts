@@ -1,5 +1,10 @@
-import { ChangeDetectionStrategy, Component, inject } from "@angular/core";
-import { ConnectionFacade } from "./core/facades/connection.facade";
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+} from "@angular/core";
+import { ConnectionsFacade } from "./core/facades/connections.facade";
 import { ShellComponent } from "./shell/shell.component";
 
 @Component({
@@ -10,5 +15,10 @@ import { ShellComponent } from "./shell/shell.component";
   styleUrl: "./app.component.css",
 })
 export class AppComponent {
-  protected readonly status = inject(ConnectionFacade).status;
+  readonly #connections = inject(ConnectionsFacade);
+  protected readonly status = computed(
+    () =>
+      this.#connections.statusFor(this.#connections.activeConnectionId())
+        ?.status ?? "idle",
+  );
 }
