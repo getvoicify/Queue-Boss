@@ -78,6 +78,16 @@ jobs:
 
       - run: npm run test:ci
 
+      # Feature-gated testcontainer suite (Docker is present on ubuntu runners).
+      # `set -o pipefail` makes a RED cargo run fail the step despite the tee;
+      # the sentinel grep additionally catches a silent "feature off -> 0 tests".
+      - name: pg-boss integration tests
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test -p qb-backends --features pg-integration -- --nocapture 2>&1 | tee pg_it.log
+          grep -q 'pg_integration_sentinel ... ok' pg_it.log || { echo 'PG integration tests did not run (feature off?)'; exit 1; }
+
   build:
     strategy:
       fail-fast: false
