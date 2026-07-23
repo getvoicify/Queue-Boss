@@ -80,6 +80,24 @@ jobs:
 
       - run: npm run test:ci
 
+      - name: Pre-pull the Postgres testcontainer image
+        # testcontainers-modules 0.15 `Postgres::default()` pulls postgres:11-alpine;
+        # pull it up front with retries so a transient Docker Hub timeout doesn't
+        # flake the integration step (the tests then reuse the cached image). Keep
+        # this tag in sync with the testcontainers-modules Postgres default.
+        shell: bash
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if docker pull postgres:11-alpine; then
+              echo "pulled postgres:11-alpine on attempt $attempt"
+              break
+            fi
+            echo "docker pull attempt $attempt failed; retrying in 15s" >&2
+            sleep 15
+          done
+          docker image inspect postgres:11-alpine >/dev/null 2>&1 \
+            || { echo "postgres:11-alpine still not present after 5 attempts" >&2; exit 1; }
+
       # Feature-gated testcontainer suite (Docker is present on ubuntu runners).
       # `set -o pipefail` makes a RED cargo run fail the step despite the tee;
       # the sentinel grep additionally catches a silent "feature off -> 0 tests".
@@ -89,6 +107,7 @@ jobs:
           set -o pipefail
           cargo test -p qb-backends --features pg-integration -- --nocapture 2>&1 | tee pg_it.log
           grep -q 'pg_integration_sentinel ... ok' pg_it.log || { echo 'PG integration tests did not run (feature off?)'; exit 1; }
+          grep -q 'pg_v11_integration_sentinel ... ok' pg_it.log || { echo 'v11 PG integration tests did not run'; exit 1; }
           cargo test -p queue-boss --features pg-integration -- --nocapture 2>&1 | tee pg_it_queue_boss.log
           grep -q 'pg_integration_sentinel ... ok' pg_it_queue_boss.log || { echo 'queue-boss PG integration tests did not run (feature off?)'; exit 1; }
 
