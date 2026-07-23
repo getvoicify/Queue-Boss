@@ -135,4 +135,59 @@ describe("JobsFacade", () => {
     await facade.select("job-1");
     expect(capabilities).toHaveBeenCalledTimes(1);
   });
+
+  it("refetches capabilities and drops the stale selection after a connection switch via setFilter", async () => {
+    const active = signal("sandbox");
+    const capsByConn: Record<string, Capabilities> = {
+      sandbox: {
+        priority: true,
+        singleton: false,
+        deadLetter: true,
+        extensions: [],
+      },
+      pgboss: {
+        priority: true,
+        singleton: false,
+        deadLetter: true,
+        extensions: ["policy"],
+      },
+    };
+    const empty: Page<JobSummary> = {
+      items: [],
+      nextCursor: null,
+      hasMore: false,
+    };
+    const listJobs = vi.fn().mockResolvedValue(empty);
+    const getJob = vi.fn((_id: string, id: string) =>
+      Promise.resolve(detail(id)),
+    );
+    const capabilities = vi.fn((connId: string) =>
+      Promise.resolve(capsByConn[connId]),
+    );
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: QueueBackendService,
+          useValue: { listJobs, getJob, capabilities },
+        },
+        {
+          provide: ConnectionsFacade,
+          useValue: { activeConnectionId: active.asReadonly() },
+        },
+      ],
+    });
+    const facade = TestBed.inject(JobsFacade);
+
+    await facade.select("job-a");
+    expect(facade.capabilities()?.extensions).toEqual([]);
+
+    active.set("pgboss");
+    await facade.setFilter({ limit: 20 });
+    expect(facade.selected()).toBeNull();
+    expect(facade.capabilities()).toBeNull();
+
+    await facade.select("job-b");
+    expect(capabilities).toHaveBeenLastCalledWith("pgboss");
+    expect(facade.capabilities()?.extensions).toEqual(["policy"]);
+  });
 });

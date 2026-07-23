@@ -45,6 +45,8 @@ export class JobsFacade {
     this.#jobs.set([]);
     this.#nextCursor.set(null);
     this.#hasMore.set(false);
+    this.#capabilities.set(null);
+    this.#selected.set(null);
     await this.loadPage();
   }
 
