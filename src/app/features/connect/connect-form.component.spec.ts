@@ -133,6 +133,13 @@ describe("ConnectFormComponent", () => {
     expect(await axe(fixture.nativeElement)).toHaveNoViolations();
   });
 
+  it("has no accessibility violations in connection-string mode", async () => {
+    const fixture = TestBed.createComponent(ConnectFormComponent);
+    fixture.componentRef.setInput("mode", "connectionString");
+    fixture.detectChanges();
+    expect(await axe(fixture.nativeElement)).toHaveNoViolations();
+  });
+
   it("stays dumb: never references the interface service or Tauri", () => {
     const src = readFileSync(
       "src/app/features/connect/connect-form.component.ts",
