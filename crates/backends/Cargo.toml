@@ -7,6 +7,23 @@ edition = "2021"
 async-trait = "0.1"
 qb-core = { path = "../core" }
 serde_json = "1"
+sqlx = { version = "0.8", features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "postgres",
+    "derive",
+    "uuid",
+    "chrono",
+] }
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [dev-dependencies]
-tokio = { version = "1", features = ["macros", "rt"] }
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
+testcontainers = "0.27"
+testcontainers-modules = { version = "0.15", features = ["postgres"] }
+
+[features]
+# Gates the testcontainer integration tests and the DDL seed helper so a plain
+# `cargo test --workspace` needs no Docker. Scope with `-p qb-backends`.
+pg-integration = []
