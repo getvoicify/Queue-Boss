@@ -96,7 +96,7 @@ describe("JobsContainerComponent", () => {
   it("forwards a row selection to the facade", () => {
     jobs.set([summary("job-1")]);
     const el = create().nativeElement;
-    el.querySelector('[data-testid="job-row"]').click();
+    el.querySelector('[data-testid="job-open"]').click();
     expect(stub.select).toHaveBeenCalledWith("job-1");
   });
 

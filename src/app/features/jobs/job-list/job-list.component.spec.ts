@@ -93,34 +93,20 @@ describe("JobListComponent", () => {
     expect(row.textContent).toContain("—");
   });
 
-  it("emits the selected job id when a row is clicked", () => {
+  it("emits the selected job id when the open button is clicked", () => {
     const fixture = render(jobs);
     const selected = vi.fn();
     fixture.componentInstance.select.subscribe(selected);
-    fixture.nativeElement.querySelector('[data-testid="job-row"]').click();
+    fixture.nativeElement.querySelector('[data-testid="job-open"]').click();
     expect(selected).toHaveBeenCalledWith("job-1");
   });
 
-  it("marks the row as an interactive button for screen readers", () => {
-    const row = render(jobs).nativeElement.querySelector(
-      '[data-testid="job-row"]',
+  it("exposes selection through a real button naming the job", () => {
+    const button = render(jobs).nativeElement.querySelector(
+      '[data-testid="job-open"]',
     );
-    expect(row.getAttribute("role")).toBe("button");
-  });
-
-  it("selects and prevents page scroll on space keydown", () => {
-    const fixture = render(jobs);
-    const selected = vi.fn();
-    fixture.componentInstance.select.subscribe(selected);
-    const row = fixture.nativeElement.querySelector('[data-testid="job-row"]');
-    const event = new KeyboardEvent("keydown", {
-      key: " ",
-      cancelable: true,
-      bubbles: true,
-    });
-    row.dispatchEvent(event);
-    expect(selected).toHaveBeenCalledWith("job-1");
-    expect(event.defaultPrevented).toBe(true);
+    expect(button.tagName).toBe("BUTTON");
+    expect(button.getAttribute("aria-label")).toBe("View job job-1");
   });
 
   it("emits a state filter when the filter control changes", () => {
