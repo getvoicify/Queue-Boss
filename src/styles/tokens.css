@@ -53,7 +53,7 @@
 
   --qb-state-deadLetter-bg: oklch(0.305 0.085 320);
   --qb-state-deadLetter-border: oklch(0.47 0.14 320);
-  --qb-state-deadLetter-solid: oklch(0.585 0.19 320);
+  --qb-state-deadLetter-solid: oklch(0.6 0.19 320);
   --qb-state-deadLetter-text: oklch(0.82 0.12 320);
   --qb-state-deadLetter: var(--qb-state-deadLetter-solid);
 
