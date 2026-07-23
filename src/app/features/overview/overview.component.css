@@ -29,5 +29,6 @@
 }
 
 .overview__num {
+  font-family: var(--qb-font-mono);
   text-align: right;
 }
