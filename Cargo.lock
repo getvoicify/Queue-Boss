@@ -3384,9 +3384,12 @@ dependencies = [
  "qb-platform",
  "serde",
  "serde_json",
+ "sqlx",
  "tauri",
  "tauri-build",
  "tauri-plugin-opener",
+ "testcontainers",
+ "testcontainers-modules",
  "tokio",
 ]
 
