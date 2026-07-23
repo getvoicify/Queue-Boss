@@ -6,6 +6,7 @@ import {
 } from "@angular/core";
 import type { JobFilter, JobState, JobSummary } from "../../../core/models";
 import { StateColorDirective } from "../../../shared/directives/state-color.directive";
+import { TimestampPipe } from "../../../shared/pipes/timestamp.pipe";
 
 const DEFAULT_LIMIT = 20;
 const JOB_STATES: readonly JobState[] = [
@@ -32,7 +33,7 @@ const JOB_STATE_LABELS: Record<JobState, string> = {
 @Component({
   selector: "app-job-list",
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StateColorDirective],
+  imports: [StateColorDirective, TimestampPipe],
   template: `
     <section class="job-list" aria-label="Jobs">
       <div class="job-list__filter">
@@ -75,8 +76,8 @@ const JOB_STATE_LABELS: Record<JobState, string> = {
             >
               <td [attr.data-testid]="'job-id-' + job.id">{{ job.id }}</td>
               <td>{{ labels[job.state] }}</td>
-              <td>{{ job.createdAt }}</td>
-              <td>{{ startedOrCompleted(job) }}</td>
+              <td>{{ job.createdAt | timestamp }}</td>
+              <td>{{ startedOrCompleted(job) | timestamp }}</td>
               <td class="job-list__num">{{ job.attempts }}</td>
               <td class="job-list__num">{{ job.priority }}</td>
             </tr>
@@ -111,9 +112,8 @@ export class JobListComponent {
   protected readonly states = JOB_STATES;
   protected readonly labels = JOB_STATE_LABELS;
 
-  protected startedOrCompleted(job: JobSummary): string {
-    const at = job.startedAt ?? job.completedAt;
-    return at === null ? "—" : String(at);
+  protected startedOrCompleted(job: JobSummary): number | null {
+    return job.startedAt ?? job.completedAt;
   }
 
   protected onFilterChange(event: Event): void {

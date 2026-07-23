@@ -1,3 +1,4 @@
+import { formatDate } from "@angular/common";
 import { TestBed } from "@angular/core/testing";
 import { describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
@@ -68,6 +69,28 @@ describe("JobListComponent", () => {
     expect(button).not.toBeNull();
     button.click();
     expect(loadMore).toHaveBeenCalled();
+  });
+
+  it("renders created and started/completed timestamps as human-readable dates, em dash when absent", () => {
+    const createdAt = 1_700_000_000_000;
+    const items: JobSummary[] = [
+      {
+        id: "job-x",
+        queue: "emails",
+        state: "active",
+        createdAt,
+        startedAt: null,
+        completedAt: null,
+        attempts: 1,
+        priority: 0,
+      },
+    ];
+    const row = render(items).nativeElement.querySelector(
+      '[data-testid="job-row"]',
+    );
+    expect(row.textContent).toContain(formatDate(createdAt, "medium", "en-US"));
+    expect(row.textContent).not.toContain(String(createdAt));
+    expect(row.textContent).toContain("—");
   });
 
   it("emits the selected job id when a row is clicked", () => {

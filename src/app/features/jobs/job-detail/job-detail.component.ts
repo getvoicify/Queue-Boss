@@ -8,6 +8,7 @@ import type { Capabilities, JobDetail } from "../../../core/models";
 import { StateColorDirective } from "../../../shared/directives/state-color.directive";
 import { AttemptsPipe } from "../../../shared/pipes/attempts.pipe";
 import { JsonPreviewPipe } from "../../../shared/pipes/json-preview.pipe";
+import { TimestampPipe } from "../../../shared/pipes/timestamp.pipe";
 
 interface ExtensionRow {
   key: string;
@@ -21,7 +22,7 @@ interface ExtensionRow {
 @Component({
   selector: "app-job-detail",
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StateColorDirective, AttemptsPipe, JsonPreviewPipe],
+  imports: [StateColorDirective, AttemptsPipe, JsonPreviewPipe, TimestampPipe],
   template: `
     <section class="job-detail" data-testid="job-detail" aria-label="Job detail">
       <h2>{{ job().id }}</h2>
@@ -34,7 +35,7 @@ interface ExtensionRow {
           <dt>Next retry</dt>
           <dd>
             <time data-testid="job-next-retry" [attr.datetime]="iso">
-              {{ job().retry.nextRetryAt }}
+              {{ job().retry.nextRetryAt | timestamp }}
             </time>
           </dd>
         }
@@ -50,7 +51,7 @@ interface ExtensionRow {
           @for (event of job().timeline; track $index) {
             <li data-testid="timeline-event" [appStateColor]="event.state">
               <span>{{ event.state }}</span>
-              <time [attr.datetime]="event.at">{{ event.at }}</time>
+              <time [attr.datetime]="event.at">{{ event.at | timestamp }}</time>
             </li>
           }
         </ol>
