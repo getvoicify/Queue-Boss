@@ -35,14 +35,25 @@ pub async fn assert_backend_conforms<B: QueueBackend>(backend: &B, clock: &Manua
     // Warm simulated time so several lifecycle states coexist for the static checks.
     clock.advance(WARMUP_MS);
 
-    assert_queue_invariants(backend).await;
-    assert_pagination(backend).await;
-    assert_state_filter(backend).await;
-    assert_timeline_ordered(backend).await;
+    assert_static_conformance(backend).await;
     assert_progression_over_time(backend, clock).await;
 }
 
-async fn assert_queue_invariants<B: QueueBackend>(backend: &B) {
+/// Assert the **clock-free** contract as a whole: the queue half then the job
+/// half. Any backend can run this without a controllable clock (a live database
+/// reads whatever its rows say), so `PgBossBackend` uses this entry point while
+/// only the sandbox additionally runs the time-driven suite.
+pub async fn assert_static_conformance<B: QueueBackend>(backend: &B) {
+    assert_queue_conformance(backend).await;
+    assert_job_conformance(backend).await;
+}
+
+/// Queue-level clock-free invariants. Touches **only** `list_queues` (never
+/// `list_jobs`/`get_job`), so it holds against a backend whose job methods are
+/// still `todo!()` stubs: `list_queues` returns at least one queue; each
+/// queue's `counts_by_state` sums to `total_depth`; `oldest_waiting_age` is
+/// `Some` iff a due waiting job exists in that queue.
+pub async fn assert_queue_conformance<B: QueueBackend>(backend: &B) {
     let queues = backend
         .list_queues()
         .await
@@ -54,6 +65,15 @@ async fn assert_queue_invariants<B: QueueBackend>(backend: &B) {
     for queue in &queues {
         assert_summary_consistent(queue);
     }
+}
+
+/// Job-level clock-free invariants. Calls `list_jobs`/`get_job`: cursor
+/// round-trip (no gaps/dupes, `has_more == next_cursor.is_some()`); state-filter
+/// exactness; `get_job` timeline ordered with valid transitions.
+pub async fn assert_job_conformance<B: QueueBackend>(backend: &B) {
+    assert_pagination(backend).await;
+    assert_state_filter(backend).await;
+    assert_timeline_ordered(backend).await;
 }
 
 fn assert_summary_consistent(queue: &QueueSummary) {
@@ -382,6 +402,7 @@ mod tests {
         None,
         NoQueues,
         BadDepth,
+        WrongOldestWaiting,
         BrokenPaging,
         NeverActive,
         OffStateFilter,
@@ -549,8 +570,13 @@ mod tests {
             let mut summaries: Vec<QueueSummary> = counts
                 .into_iter()
                 .map(|(name, counts_by_state)| {
-                    let oldest =
-                        core_oldest_waiting_age(waiting.get(name).cloned().unwrap_or_default());
+                    // WrongOldestWaiting drops the age even while a due waiting job
+                    // exists, violating the Some-iff-waiting invariant.
+                    let oldest = if self.broken == Break::WrongOldestWaiting {
+                        None
+                    } else {
+                        core_oldest_waiting_age(waiting.get(name).cloned().unwrap_or_default())
+                    };
                     QueueSummary::new(name, counts_by_state, oldest)
                 })
                 .collect();
@@ -697,6 +723,8 @@ mod tests {
         assert_backend_conforms(&backend, &clock).await;
     }
 
+    /// Drives the full time-driven suite; used for progression breaks that no
+    /// static half can catch (e.g. jobs that never leave `Created`).
     async fn assert_rejects(broken: Break) {
         let clock = ManualClock::new(1_000_000);
         let backend =
@@ -704,45 +732,79 @@ mod tests {
         assert_backend_conforms(&backend, &clock).await;
     }
 
+    /// Routes a queue-half break through `assert_queue_conformance` only, proving
+    /// the queue half catches it without touching `list_jobs`/`get_job`.
+    async fn assert_queue_rejects(broken: Break) {
+        let clock = ManualClock::new(1_000_000);
+        let backend =
+            ConformingBackend::with_break(Arc::new(clock.clone()) as Arc<dyn Clock>, broken);
+        assert_queue_conformance(&backend).await;
+    }
+
+    /// Routes a job-half break through `assert_job_conformance` only.
+    async fn assert_job_rejects(broken: Break) {
+        let clock = ManualClock::new(1_000_000);
+        let backend =
+            ConformingBackend::with_break(Arc::new(clock.clone()) as Arc<dyn Clock>, broken);
+        assert_job_conformance(&backend).await;
+    }
+
     #[tokio::test]
     #[should_panic(expected = "at least one queue")]
-    async fn the_suite_rejects_a_backend_with_no_queues() {
-        assert_rejects(Break::NoQueues).await;
+    async fn the_queue_suite_rejects_a_backend_with_no_queues() {
+        assert_queue_rejects(Break::NoQueues).await;
     }
 
     #[tokio::test]
     #[should_panic(expected = "total_depth")]
-    async fn the_suite_rejects_counts_that_do_not_sum_to_depth() {
-        assert_rejects(Break::BadDepth).await;
+    async fn the_queue_suite_rejects_counts_that_do_not_sum_to_depth() {
+        assert_queue_rejects(Break::BadDepth).await;
+    }
+
+    #[tokio::test]
+    #[should_panic(expected = "must be present iff waiting jobs exist")]
+    async fn the_queue_suite_rejects_a_missing_oldest_waiting_age() {
+        assert_queue_rejects(Break::WrongOldestWaiting).await;
+    }
+
+    #[tokio::test]
+    #[should_panic(expected = "must be present iff waiting jobs exist")]
+    async fn the_static_suite_rejects_a_queue_violation() {
+        let clock = ManualClock::new(1_000_000);
+        let backend = ConformingBackend::with_break(
+            Arc::new(clock.clone()) as Arc<dyn Clock>,
+            Break::WrongOldestWaiting,
+        );
+        assert_static_conformance(&backend).await;
     }
 
     #[tokio::test]
     #[should_panic(expected = "has_more")]
-    async fn the_suite_rejects_pagination_that_breaks_the_cursor_invariant() {
-        assert_rejects(Break::BrokenPaging).await;
-    }
-
-    #[tokio::test]
-    #[should_panic(expected = "Active")]
-    async fn the_suite_rejects_a_backend_whose_jobs_never_progress() {
-        assert_rejects(Break::NeverActive).await;
+    async fn the_job_suite_rejects_pagination_that_breaks_the_cursor_invariant() {
+        assert_job_rejects(Break::BrokenPaging).await;
     }
 
     #[tokio::test]
     #[should_panic(expected = "off-state")]
-    async fn the_suite_rejects_a_state_filter_that_returns_off_state_jobs() {
-        assert_rejects(Break::OffStateFilter).await;
+    async fn the_job_suite_rejects_a_state_filter_that_returns_off_state_jobs() {
+        assert_job_rejects(Break::OffStateFilter).await;
     }
 
     #[tokio::test]
     #[should_panic(expected = "ordered ascending")]
-    async fn the_suite_rejects_an_out_of_order_timeline() {
-        assert_rejects(Break::UnorderedTimeline).await;
+    async fn the_job_suite_rejects_an_out_of_order_timeline() {
+        assert_job_rejects(Break::UnorderedTimeline).await;
     }
 
     #[tokio::test]
     #[should_panic(expected = "invalid lifecycle transition")]
-    async fn the_suite_rejects_an_illegal_lifecycle_transition() {
-        assert_rejects(Break::IllegalTransition).await;
+    async fn the_job_suite_rejects_an_illegal_lifecycle_transition() {
+        assert_job_rejects(Break::IllegalTransition).await;
+    }
+
+    #[tokio::test]
+    #[should_panic(expected = "Active")]
+    async fn the_time_driven_suite_rejects_a_backend_whose_jobs_never_progress() {
+        assert_rejects(Break::NeverActive).await;
     }
 }

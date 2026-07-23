@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use qb_backends::SandboxBackend;
 use qb_core::clock::{Clock, ManualClock};
-use qb_core::conformance::assert_backend_conforms;
+use qb_core::conformance::{assert_backend_conforms, assert_static_conformance};
 use qb_core::QueueBackend;
 
 #[tokio::test]
@@ -10,6 +10,14 @@ async fn sandbox_backend_conforms_to_the_shared_suite() {
     let clock = ManualClock::new(1_000_000);
     let backend = SandboxBackend::new(Arc::new(clock.clone()) as Arc<dyn Clock>, 0x00C0_FFEE);
     assert_backend_conforms(&backend, &clock).await;
+}
+
+#[tokio::test]
+async fn sandbox_backend_conforms_to_the_static_suite() {
+    // Locks the standalone clock-free entry point PgBossBackend will run.
+    let clock = ManualClock::new(1_000_000);
+    let backend = SandboxBackend::new(Arc::new(clock.clone()) as Arc<dyn Clock>, 0x00C0_FFEE);
+    assert_static_conformance(&backend).await;
 }
 
 #[tokio::test]
