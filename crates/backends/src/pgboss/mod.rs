@@ -1,6 +1,8 @@
-//! `PgBossBackend` — a read-only [`QueueBackend`] over a pg-boss v10 Postgres
+//! `PgBossBackend` — a read-only [`QueueBackend`] over a pg-boss v10/v11 Postgres
 //! schema. Version-detect + queue overview + capabilities land in E2-2a; the
-//! job read path (`list_jobs`/`get_job`) is E2-2b.
+//! job read path (`list_jobs`/`get_job`) is E2-2b; v11 (schema 25) routing is
+//! E2-7. The reads are flavor-agnostic — only the version band and the reported
+//! label differ.
 
 mod map;
 mod queries;
@@ -19,24 +21,24 @@ use qb_core::{
     JobFilter, JobId, JobSummary, Page, QueueBackend, QueueSummary, Seconds,
 };
 
-use self::map::{build_summaries, classify_version, to_detail, to_summary, SchemaFlavor};
+use self::map::{build_summaries, classify_version, to_detail, to_summary};
 use self::rows::{
     JobDetailRow, JobSummaryRow, OldestAgeRow, QueueNameRow, StateCountRow, VersionRow,
 };
 
 const DEFAULT_SCHEMA: &str = "pgboss";
 
-/// Read-only adapter over a pg-boss v10 `PgPool`.
+/// Read-only adapter over a pg-boss `PgPool`. The schema flavor (v10 or v11) is
+/// detected live in `test_connection`, not stored.
 pub struct PgBossBackend {
     pool: PgPool,
     schema: String,
-    flavor: SchemaFlavor,
 }
 
 impl PgBossBackend {
-    /// Build a backend over `pool` for the default `pgboss` schema. v10 is the
-    /// only flavor implemented in P0; `test_connection` gates the live schema
-    /// version before the connect flow (E2-4) trusts this backend.
+    /// Build a backend over `pool` for the default `pgboss` schema.
+    /// `test_connection` detects and gates the live schema version before the
+    /// connect flow (E2-4) trusts this backend.
     pub fn new(pool: PgPool) -> Self {
         Self::with_schema(pool, DEFAULT_SCHEMA)
     }
@@ -46,7 +48,6 @@ impl PgBossBackend {
         Self {
             pool,
             schema: schema.into(),
-            flavor: SchemaFlavor::V10,
         }
     }
 
@@ -80,10 +81,11 @@ impl QueueBackend for PgBossBackend {
                 }
             };
         // Gate: an out-of-band or missing version yields `Unsupported` carrying
-        // self-authored product copy (never a driver string).
-        classify_version(version)?;
-        let detail =
-            version.map(|v| format!("pg-boss {} schema (version {v})", self.flavor.label()));
+        // self-authored product copy (never a driver string). The gate also
+        // yields the detected flavor, so a v11 schema reports "v11" (not the
+        // hardcoded v10).
+        let flavor = classify_version(version)?;
+        let detail = version.map(|v| format!("pg-boss {} schema (version {v})", flavor.label()));
         Ok(BackendInfo {
             name: "pg-boss".to_owned(),
             healthy: true,

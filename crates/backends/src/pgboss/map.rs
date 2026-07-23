@@ -12,34 +12,38 @@ use qb_core::{
 
 use crate::pgboss::rows::{JobDetailRow, JobSummaryRow, StateCountRow};
 
-/// Detected pg-boss schema flavor. Only `V10` is implemented in P0; E2-7 adds a
-/// `V11` arm without touching the v10 path.
+/// Detected pg-boss schema flavor. `V10` and `V11` share the flavor-agnostic
+/// read path; only the version band and the reported label differ.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SchemaFlavor {
     V10,
+    V11,
 }
 
 impl SchemaFlavor {
     pub(crate) fn label(self) -> &'static str {
         match self {
             SchemaFlavor::V10 => "v10",
+            SchemaFlavor::V11 => "v11",
         }
     }
 }
 
 /// Classify a `pgboss.version.version` integer into a supported schema flavor.
 /// `None` means the `version` table is absent (not a pg-boss schema at all). The
-/// v10 supported band is schema versions 21–24 (floor 21); anything else —
-/// including v11's 25 (until E2-7) and a missing table — is `Unsupported` with
-/// self-authored product copy, never a driver string.
+/// supported band is schema versions 21–25: 21–24 → v10, 25 → v11. Anything else
+/// — below the floor, above the ceiling, or a missing table — is `Unsupported`
+/// with self-authored product copy, never a driver string.
 pub(crate) fn classify_version(version: Option<i32>) -> Result<SchemaFlavor, BackendError> {
     match version {
         Some(v) if (21..=24).contains(&v) => Ok(SchemaFlavor::V10),
+        Some(25) => Ok(SchemaFlavor::V11),
         Some(v) => Err(BackendError::Unsupported(format!(
-            "pg-boss v10 required (schema versions 21–24); found schema v{v}"
+            "pg-boss v10 or v11 required (schema versions 21–25); found schema v{v}"
         ))),
         None => Err(BackendError::Unsupported(
-            "pg-boss v10 required (schema versions 21–24); found no pgboss schema".to_owned(),
+            "pg-boss v10 or v11 required (schema versions 21–25); found no pgboss schema"
+                .to_owned(),
         )),
     }
 }
@@ -267,10 +271,15 @@ mod tests {
     }
 
     #[test]
-    fn classify_version_rejects_v11_until_e2_7() {
-        let err = classify_version(Some(25)).unwrap_err();
+    fn classify_version_maps_25_to_v11() {
+        assert_eq!(classify_version(Some(25)).unwrap(), SchemaFlavor::V11);
+    }
+
+    #[test]
+    fn classify_version_rejects_above_the_v11_ceiling() {
+        let err = classify_version(Some(26)).unwrap_err();
         assert!(matches!(err, BackendError::Unsupported(_)));
-        assert!(err.to_string().contains("v25"), "{err}");
+        assert!(err.to_string().contains("v26"), "{err}");
     }
 
     #[test]
