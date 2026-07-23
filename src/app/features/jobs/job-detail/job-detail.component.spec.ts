@@ -85,6 +85,10 @@ describe("JobDetailComponent", () => {
       formatDate(at, "medium", "en-US"),
     );
     expect(timelineTime.textContent).not.toContain(String(at));
+    expect(timelineTime.getAttribute("datetime")).toBe(
+      new Date(at).toISOString(),
+    );
+    expect(timelineTime.getAttribute("datetime")).not.toBe(String(at));
   });
 
   it("renders an extension row only for keys in BOTH the extensions map and the advertised capabilities", () => {

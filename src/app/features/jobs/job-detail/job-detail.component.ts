@@ -4,7 +4,11 @@ import {
   computed,
   input,
 } from "@angular/core";
-import type { Capabilities, JobDetail } from "../../../core/models";
+import type {
+  Capabilities,
+  JobDetail,
+  TimelineEvent,
+} from "../../../core/models";
 import { StateColorDirective } from "../../../shared/directives/state-color.directive";
 import { AttemptsPipe } from "../../../shared/pipes/attempts.pipe";
 import { JsonPreviewPipe } from "../../../shared/pipes/json-preview.pipe";
@@ -13,6 +17,10 @@ import { TimestampPipe } from "../../../shared/pipes/timestamp.pipe";
 interface ExtensionRow {
   key: string;
   value: unknown;
+}
+
+interface TimelineRow extends TimelineEvent {
+  iso: string;
 }
 
 // Dumb job-detail panel: timeline, retry readout ("N of M" plus a next-retry
@@ -48,10 +56,10 @@ interface ExtensionRow {
       <section class="job-detail__timeline" aria-label="Timeline">
         <h3>Timeline</h3>
         <ol>
-          @for (event of job().timeline; track $index) {
+          @for (event of timelineRows(); track $index) {
             <li data-testid="timeline-event" [appStateColor]="event.state">
               <span>{{ event.state }}</span>
-              <time [attr.datetime]="event.at">{{ event.at | timestamp }}</time>
+              <time [attr.datetime]="event.iso">{{ event.at | timestamp }}</time>
             </li>
           }
         </ol>
@@ -81,6 +89,13 @@ export class JobDetailComponent {
     const at = this.job().retry.nextRetryAt;
     return at === null ? null : new Date(at).toISOString();
   });
+
+  protected readonly timelineRows = computed<TimelineRow[]>(() =>
+    this.job().timeline.map((event) => ({
+      ...event,
+      iso: new Date(event.at).toISOString(),
+    })),
+  );
 
   protected readonly extensionRows = computed<ExtensionRow[]>(() => {
     const extensions = this.job().extensions;

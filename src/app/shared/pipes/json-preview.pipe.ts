@@ -11,9 +11,6 @@ export class JsonPreviewPipe implements PipeTransform {
       return "—";
     }
     const json = JSON.stringify(value);
-    if (json === undefined) {
-      return "—";
-    }
     return json.length > MAX_LENGTH ? `${json.slice(0, MAX_LENGTH)}…` : json;
   }
 }

@@ -78,7 +78,7 @@ const JOB_STATE_LABELS: Record<JobState, string> = {
               </td>
               <td>{{ labels[job.state] }}</td>
               <td>{{ job.createdAt | timestamp }}</td>
-              <td>{{ startedOrCompleted(job) | timestamp }}</td>
+              <td>{{ (job.startedAt ?? job.completedAt) | timestamp }}</td>
               <td class="job-list__num">{{ job.attempts }}</td>
               <td class="job-list__num">{{ job.priority }}</td>
             </tr>
@@ -112,10 +112,6 @@ export class JobListComponent {
 
   protected readonly states = JOB_STATES;
   protected readonly labels = JOB_STATE_LABELS;
-
-  protected startedOrCompleted(job: JobSummary): number | null {
-    return job.startedAt ?? job.completedAt;
-  }
 
   protected onFilterChange(event: Event): void {
     const value = (event.target as HTMLSelectElement).value as JobState | "";

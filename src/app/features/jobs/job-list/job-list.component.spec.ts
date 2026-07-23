@@ -93,6 +93,55 @@ describe("JobListComponent", () => {
     expect(row.textContent).toContain("—");
   });
 
+  it("shows the started value when present, else completed, else em dash", () => {
+    const started = 1_700_000_000_000;
+    const completed = 1_700_000_500_000;
+    const items: JobSummary[] = [
+      {
+        id: "started",
+        queue: "emails",
+        state: "active",
+        createdAt: 1,
+        startedAt: started,
+        completedAt: 5,
+        attempts: 1,
+        priority: 0,
+      },
+      {
+        id: "completed",
+        queue: "emails",
+        state: "completed",
+        createdAt: 2,
+        startedAt: null,
+        completedAt: completed,
+        attempts: 1,
+        priority: 0,
+      },
+      {
+        id: "neither",
+        queue: "emails",
+        state: "created",
+        createdAt: 3,
+        startedAt: null,
+        completedAt: null,
+        attempts: 1,
+        priority: 0,
+      },
+    ];
+    const rows = render(items).nativeElement.querySelectorAll(
+      '[data-testid="job-row"]',
+    );
+    const cell = (i: number) => rows[i].querySelectorAll("td")[3];
+    expect(cell(0).textContent).toContain(
+      formatDate(started, "medium", "en-US"),
+    );
+    expect(cell(0).textContent).not.toContain(formatDate(5, "medium", "en-US"));
+    expect(cell(1).textContent).toContain(
+      formatDate(completed, "medium", "en-US"),
+    );
+    expect(cell(2).textContent.trim()).toBe("—");
+  });
+
   it("emits the selected job id when the open button is clicked", () => {
     const fixture = render(jobs);
     const selected = vi.fn();
