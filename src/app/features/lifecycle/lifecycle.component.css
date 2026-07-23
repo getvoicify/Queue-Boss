@@ -39,6 +39,7 @@
 
 .lifecycle__value {
   margin: 0;
+  font-family: var(--qb-font-mono);
   font-size: 1.25rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;

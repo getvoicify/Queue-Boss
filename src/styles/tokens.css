@@ -5,19 +5,57 @@
   --qb-surface: #161b22;
   --qb-surface-hover: #1f2630;
   --qb-border: #30363d;
+  --qb-border-strong: oklch(0.62 0.02 250);
   --qb-fg: #e6edf3;
   --qb-fg-muted: #9da7b3;
   --qb-fg-subtle: #6e7781;
   --qb-accent: #2f81f7;
 
-  /* Per-JobState colors consumed by StateColorDirective via --qb-state-color. */
-  --qb-state-created: #6e7781;
-  --qb-state-active: #2f81f7;
-  --qb-state-completed: #3fb950;
-  --qb-state-failed: #f85149;
-  --qb-state-cancelled: #8b949e;
-  --qb-state-retry: #d29922;
-  --qb-state-deadLetter: #a371f7;
+  --qb-font-sans: "IBM Plex Sans", Avenir, Helvetica, Arial, sans-serif;
+  --qb-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Per-JobState OKLCH ramp — alias keeps --qb-state-<name> resolving; -on is reserved (no value yet). */
+  --qb-state-created-bg: oklch(0.29 0.018 250);
+  --qb-state-created-border: oklch(0.43 0.024 250);
+  --qb-state-created-solid: oklch(0.62 0.03 250);
+  --qb-state-created-text: oklch(0.79 0.024 250);
+  --qb-state-created: var(--qb-state-created-solid);
+
+  --qb-state-active-bg: oklch(0.3 0.06 250);
+  --qb-state-active-border: oklch(0.47 0.11 250);
+  --qb-state-active-solid: oklch(0.64 0.15 250);
+  --qb-state-active-text: oklch(0.81 0.1 250);
+  --qb-state-active: var(--qb-state-active-solid);
+
+  --qb-state-completed-bg: oklch(0.3 0.055 155);
+  --qb-state-completed-border: oklch(0.47 0.095 155);
+  --qb-state-completed-solid: oklch(0.68 0.15 155);
+  --qb-state-completed-text: oklch(0.83 0.11 155);
+  --qb-state-completed: var(--qb-state-completed-solid);
+
+  --qb-state-failed-bg: oklch(0.305 0.075 25);
+  --qb-state-failed-border: oklch(0.48 0.14 25);
+  --qb-state-failed-solid: oklch(0.62 0.2 25);
+  --qb-state-failed-text: oklch(0.805 0.135 25);
+  --qb-state-failed: var(--qb-state-failed-solid);
+
+  --qb-state-retry-bg: oklch(0.325 0.055 75);
+  --qb-state-retry-border: oklch(0.52 0.1 75);
+  --qb-state-retry-solid: oklch(0.77 0.15 75);
+  --qb-state-retry-text: oklch(0.86 0.105 75);
+  --qb-state-retry: var(--qb-state-retry-solid);
+
+  --qb-state-cancelled-bg: oklch(0.23 0.01 250);
+  --qb-state-cancelled-border: oklch(0.38 0.012 250);
+  --qb-state-cancelled-solid: oklch(0.52 0.015 250);
+  --qb-state-cancelled-text: oklch(0.62 0.014 250);
+  --qb-state-cancelled: var(--qb-state-cancelled-solid);
+
+  --qb-state-deadLetter-bg: oklch(0.305 0.085 320);
+  --qb-state-deadLetter-border: oklch(0.47 0.14 320);
+  --qb-state-deadLetter-solid: oklch(0.585 0.19 320);
+  --qb-state-deadLetter-text: oklch(0.82 0.12 320);
+  --qb-state-deadLetter: var(--qb-state-deadLetter-solid);
 
   /* Connection-status indicator colors. */
   --qb-status-connected: #3fb950;
