@@ -1,12 +1,17 @@
-//! Test-only pg-boss v10 schema + fixture seeding for the integration suite.
+//! Test-only pg-boss v10 + v11 schema + fixture seeding for the integration
+//! suite.
 //!
 //! This is the ONLY adapter module permitted to run DDL/DML: it is
 //! `#[cfg(feature = "pg-integration")]` and never compiled into the read-only
-//! runtime path. The DDL is transcribed verbatim from pg-boss `10.1.5`
+//! runtime path. The v10 DDL is transcribed verbatim from pg-boss `10.1.5`
 //! `src/plans.js` (schema version 24): the `job_state` enum, the `version`,
 //! `queue`, and LIST-partitioned `job` tables, and the parent primary key. Each
-//! queue's LIST partition is created (and attached) before any of that queue's
-//! jobs are inserted — `job` has no default partition (R2).
+//! v10 queue's LIST partition is created (and attached) before any of that
+//! queue's jobs are inserted — the v10 `job` has no default partition (R2). The
+//! v11 DDL ([`apply_schema_v11`], schema version 25, from `11.0.1` `src/plans.js`)
+//! keeps the same LIST-partitioned parent but attaches a single DEFAULT
+//! partition (`job_common`) that catches every queue's rows. Both flavors seed
+//! the identical logical fixture ([`FIXTURE_QUEUES`]/[`FIXTURE_JOBS`]).
 
 use sqlx::PgPool;
 
@@ -18,6 +23,15 @@ const SCHEMA: &str = "pgboss";
 pub async fn seed_v10(pool: &PgPool) -> Result<(), sqlx::Error> {
     apply_schema(pool).await?;
     seed_fixture(pool).await?;
+    Ok(())
+}
+
+/// Apply the pg-boss v11 schema (schema version 25) and the SAME logical fixture
+/// as [`seed_v10`], proving the flavor-agnostic read path against v11's DEFAULT
+/// (`job_common`) partition layout.
+pub async fn seed_v11(pool: &PgPool) -> Result<(), sqlx::Error> {
+    apply_schema_v11(pool).await?;
+    seed_fixture_v11(pool).await?;
     Ok(())
 }
 
@@ -81,6 +95,72 @@ pub async fn apply_schema(pool: &PgPool) -> Result<(), sqlx::Error> {
         // The partitioned parent PK; attaching a partition auto-creates its copy.
         format!("ALTER TABLE {SCHEMA}.job ADD PRIMARY KEY (name, id)"),
         format!("INSERT INTO {SCHEMA}.version (version) VALUES (24)"),
+    ];
+    for stmt in ddl {
+        sqlx::query(&stmt).execute(pool).await?;
+    }
+    Ok(())
+}
+
+/// Create the pg-boss v11 schema objects and stamp schema version 25. The DDL
+/// mirrors pg-boss `11.0.1` `src/plans.js`: a slim `version` table, a v11 `queue`
+/// (`retention_seconds`/`deletion_seconds`/`partition`/`table_name`, no
+/// `partition_name`), and the same LIST-partitioned parent `job` — but with a
+/// single DEFAULT partition (`job_common`) that catches every queue's rows
+/// instead of v10's per-queue partitions. Only the read-touched `job` columns
+/// (plus the columns `insert_job` writes) are carried; the rest are elided.
+pub async fn apply_schema_v11(pool: &PgPool) -> Result<(), sqlx::Error> {
+    let ddl = [
+        "CREATE EXTENSION IF NOT EXISTS pgcrypto".to_owned(),
+        format!("CREATE SCHEMA IF NOT EXISTS {SCHEMA}"),
+        format!(
+            "CREATE TYPE {SCHEMA}.job_state AS ENUM \
+             ('created', 'retry', 'active', 'completed', 'cancelled', 'failed')"
+        ),
+        format!(
+            "CREATE TABLE {SCHEMA}.version (\
+               version int primary key, \
+               cron_on timestamp with time zone)"
+        ),
+        format!(
+            "CREATE TABLE {SCHEMA}.queue (\
+               name text, \
+               policy text, \
+               retry_limit int, \
+               retry_delay int, \
+               retry_backoff bool, \
+               retention_seconds int, \
+               deletion_seconds int, \
+               dead_letter text REFERENCES {SCHEMA}.queue (name), \
+               partition boolean not null default false, \
+               table_name text, \
+               created_on timestamp with time zone not null default now(), \
+               updated_on timestamp with time zone not null default now(), \
+               PRIMARY KEY (name))"
+        ),
+        format!(
+            "CREATE TABLE {SCHEMA}.job (\
+               id uuid not null default gen_random_uuid(), \
+               name text not null, \
+               priority integer not null default(0), \
+               data jsonb, \
+               state {SCHEMA}.job_state not null default('created'), \
+               retry_limit integer not null default(2), \
+               retry_count integer not null default(0), \
+               start_after timestamp with time zone not null default now(), \
+               started_on timestamp with time zone, \
+               singleton_key text, \
+               created_on timestamp with time zone not null default now(), \
+               completed_on timestamp with time zone, \
+               output jsonb, \
+               dead_letter text, \
+               policy text) PARTITION BY LIST (name)"
+        ),
+        format!("ALTER TABLE {SCHEMA}.job ADD PRIMARY KEY (name, id)"),
+        // The single DEFAULT partition routes every queue's rows (v11 R2).
+        format!("CREATE TABLE {SCHEMA}.job_common (LIKE {SCHEMA}.job INCLUDING DEFAULTS)"),
+        format!("ALTER TABLE {SCHEMA}.job ATTACH PARTITION {SCHEMA}.job_common DEFAULT"),
+        format!("INSERT INTO {SCHEMA}.version (version) VALUES (25)"),
     ];
     for stmt in ddl {
         sqlx::query(&stmt).execute(pool).await?;
@@ -174,29 +254,75 @@ pub async fn insert_job(
     Ok(())
 }
 
+/// The conformance queues in creation order: `(name, dead_letter)`. The DLQ must
+/// precede the origin queue that references it (dead_letter FK). `archive_q` is
+/// drained (present with no jobs). Shared by both flavors so v10 and v11 seed the
+/// identical logical fixture.
+const FIXTURE_QUEUES: &[(&str, Option<&str>)] = &[
+    ("orders_dlq", None),
+    ("orders", Some("orders_dlq")),
+    ("processing", None),
+    ("archive_q", None),
+];
+
+/// The conformance jobs in insertion order: `(queue, state, dead_letter)`.
+/// `orders` carries all six native states plus a derived dead-letter row (a
+/// `failed` origin job routed elsewhere, R4); `orders_dlq` holds the DLQ's own
+/// `created` copy; `processing` is populated but has NO waiting job (oldest-
+/// waiting age must be `None`). Shared by both flavors.
+const FIXTURE_JOBS: &[(&str, &str, Option<&str>)] = &[
+    ("orders", "created", None),
+    ("orders", "retry", None),
+    ("orders", "active", None),
+    ("orders", "completed", None),
+    ("orders", "cancelled", None),
+    ("orders", "failed", None),
+    ("orders", "failed", Some("orders_dlq")),
+    ("orders_dlq", "created", None),
+    ("processing", "active", None),
+    ("processing", "completed", None),
+];
+
 async fn seed_fixture(pool: &PgPool) -> Result<(), sqlx::Error> {
-    // The DLQ must exist before the origin queue references it (dead_letter FK).
-    create_queue(pool, "orders_dlq", None).await?;
-    create_queue(pool, "orders", Some("orders_dlq")).await?;
-    create_queue(pool, "processing", None).await?;
-    create_queue(pool, "archive_q", None).await?; // drained: present, no jobs
+    for (name, dead_letter) in FIXTURE_QUEUES {
+        create_queue(pool, name, *dead_letter).await?;
+    }
+    for (name, state, dead_letter) in FIXTURE_JOBS {
+        insert_job(pool, name, state, *dead_letter).await?;
+    }
+    Ok(())
+}
 
-    // orders: all six native states + a derived dead-letter row (a `failed`
-    // origin job whose own dead_letter column routes elsewhere, R4).
-    insert_job(pool, "orders", "created", None).await?;
-    insert_job(pool, "orders", "retry", None).await?;
-    insert_job(pool, "orders", "active", None).await?;
-    insert_job(pool, "orders", "completed", None).await?;
-    insert_job(pool, "orders", "cancelled", None).await?;
-    insert_job(pool, "orders", "failed", None).await?; // Failed: no route
-    insert_job(pool, "orders", "failed", Some("orders_dlq")).await?; // DeadLetter
+/// Insert a v11 queue row. Matches the v11 `queue` columns; there is NO per-queue
+/// partition to create or attach — every row lands in the DEFAULT `job_common`
+/// partition. `name` is the fixture-controlled queue key.
+pub async fn create_queue_v11(
+    pool: &PgPool,
+    name: &str,
+    dead_letter: Option<&str>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(&format!(
+        "INSERT INTO {SCHEMA}.queue \
+         (name, policy, retry_limit, retry_delay, retry_backoff, \
+          retention_seconds, deletion_seconds, dead_letter, partition, table_name) \
+         VALUES ($1, 'standard', 2, 0, false, NULL, NULL, $2, false, 'job_common')"
+    ))
+    .bind(name)
+    .bind(dead_letter)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
 
-    // orders_dlq: the DLQ's own `created` copy of the dead-lettered unit of work.
-    insert_job(pool, "orders_dlq", "created", None).await?;
-
-    // processing: populated but with NO waiting job -> oldest_waiting_age None.
-    insert_job(pool, "processing", "active", None).await?;
-    insert_job(pool, "processing", "completed", None).await?;
-
+async fn seed_fixture_v11(pool: &PgPool) -> Result<(), sqlx::Error> {
+    for (name, dead_letter) in FIXTURE_QUEUES {
+        create_queue_v11(pool, name, *dead_letter).await?;
+    }
+    // `insert_job` is reused verbatim: INSERT INTO {schema}.job auto-routes to
+    // the DEFAULT partition on v11 exactly as it hits the per-queue partition on
+    // v10.
+    for (name, state, dead_letter) in FIXTURE_JOBS {
+        insert_job(pool, name, state, *dead_letter).await?;
+    }
     Ok(())
 }
