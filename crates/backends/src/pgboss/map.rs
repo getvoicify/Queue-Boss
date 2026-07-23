@@ -132,6 +132,11 @@ fn synthesize_timeline(
             (Active, started_at),
             (Completed, completed_at),
         ],
+        Cancelled if started_at.is_some() => vec![
+            (Created, Some(created_at)),
+            (Active, started_at),
+            (Cancelled, completed_at),
+        ],
         Cancelled => vec![(Created, Some(created_at)), (Cancelled, completed_at)],
         Failed => vec![
             (Created, Some(created_at)),
@@ -482,8 +487,18 @@ mod tests {
     }
 
     #[test]
-    fn timeline_for_cancelled_is_created_then_cancelled() {
+    fn timeline_for_cancelled_after_active_includes_active() {
         let tl = synthesize_timeline(JobState::Cancelled, CREATED_AT, STARTED_AT, COMPLETED_AT);
+        assert_eq!(
+            states_of(&tl),
+            vec![JobState::Created, JobState::Active, JobState::Cancelled]
+        );
+        assert_ordered_valid_chain(&tl, JobState::Cancelled);
+    }
+
+    #[test]
+    fn timeline_for_cancelled_without_start_omits_active() {
+        let tl = synthesize_timeline(JobState::Cancelled, CREATED_AT, None, COMPLETED_AT);
         assert_eq!(states_of(&tl), vec![JobState::Created, JobState::Cancelled]);
         assert_ordered_valid_chain(&tl, JobState::Cancelled);
     }
