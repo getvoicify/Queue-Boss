@@ -290,6 +290,12 @@ mod tests {
     }
 
     #[test]
+    fn schema_flavor_label_names_each_flavor() {
+        assert_eq!(SchemaFlavor::V10.label(), "v10");
+        assert_eq!(SchemaFlavor::V11.label(), "v11");
+    }
+
+    #[test]
     fn qb_state_from_str_maps_all_native_and_derived_states() {
         assert_eq!(qb_state_from_str("created"), Some(JobState::Created));
         assert_eq!(qb_state_from_str("retry"), Some(JobState::Retry));
