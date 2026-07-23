@@ -30,3 +30,40 @@ pub(crate) struct StateCountRow {
 pub(crate) struct OldestAgeRow {
     pub(crate) age: Option<i64>,
 }
+
+/// A compact job row for `list_jobs`. Timestamps arrive as epoch-ms `bigint`
+/// projections; `qb_state` carries the derived `deadLetter` bucket via the §3.4
+/// `CASE`; `job_id` is the uuid cast to text.
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub(crate) struct JobSummaryRow {
+    pub(crate) created_at: i64,
+    pub(crate) job_id: String,
+    pub(crate) name: String,
+    pub(crate) qb_state: String,
+    pub(crate) started_at: Option<i64>,
+    pub(crate) completed_at: Option<i64>,
+    pub(crate) attempts: i32,
+    pub(crate) priority: i32,
+}
+
+/// A full job row for `get_job`. Extends the summary projection with the retry
+/// accounting, the singleton/policy/dead-letter extension columns, and the
+/// `data`/`output` payloads cast to text for in-process JSON parsing.
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub(crate) struct JobDetailRow {
+    pub(crate) created_at: i64,
+    pub(crate) job_id: String,
+    pub(crate) name: String,
+    pub(crate) qb_state: String,
+    pub(crate) started_at: Option<i64>,
+    pub(crate) completed_at: Option<i64>,
+    pub(crate) attempts: i32,
+    pub(crate) priority: i32,
+    pub(crate) retry_limit: i32,
+    pub(crate) start_after_ms: i64,
+    pub(crate) singleton_key: Option<String>,
+    pub(crate) policy: Option<String>,
+    pub(crate) dead_letter: Option<String>,
+    pub(crate) data: Option<String>,
+    pub(crate) output: Option<String>,
+}

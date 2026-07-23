@@ -15,12 +15,14 @@ use async_trait::async_trait;
 use sqlx::PgPool;
 
 use qb_core::{
-    BackendError, BackendInfo, Capabilities, JobDetail, JobFilter, JobId, JobSummary, Page,
-    QueueBackend, QueueSummary, Seconds,
+    decode_cursor, encode_cursor, BackendError, BackendInfo, Capabilities, Cursor, JobDetail,
+    JobFilter, JobId, JobSummary, Page, QueueBackend, QueueSummary, Seconds,
 };
 
-use self::map::{build_summaries, classify_version, SchemaFlavor};
-use self::rows::{OldestAgeRow, QueueNameRow, StateCountRow, VersionRow};
+use self::map::{build_summaries, classify_version, to_detail, to_summary, SchemaFlavor};
+use self::rows::{
+    JobDetailRow, JobSummaryRow, OldestAgeRow, QueueNameRow, StateCountRow, VersionRow,
+};
 
 const DEFAULT_SCHEMA: &str = "pgboss";
 
@@ -104,12 +106,59 @@ impl QueueBackend for PgBossBackend {
         build_summaries(&names, &counts, &ages)
     }
 
-    async fn list_jobs(&self, _filter: JobFilter) -> Result<Page<JobSummary>, BackendError> {
-        todo!("E2-2b: list_jobs")
+    async fn list_jobs(&self, filter: JobFilter) -> Result<Page<JobSummary>, BackendError> {
+        let cursor = filter.cursor.as_deref().map(decode_cursor).transpose()?;
+        let sql = queries::list_jobs(&self.schema, &filter, cursor.as_ref());
+        let mut q = sqlx::query_as::<_, JobSummaryRow>(&sql);
+        if let Some(c) = &cursor {
+            q = q.bind(c.created_at as i64).bind(c.id.0.clone());
+        }
+        if let Some(queue) = &filter.queue {
+            q = q.bind(queue.clone());
+        }
+        if let Some(states) = &filter.states {
+            let wire: Vec<String> = states.iter().map(|s| s.to_string()).collect();
+            q = q.bind(wire);
+        }
+        if let Some(tw) = &filter.time_window {
+            q = q.bind(tw.from as i64).bind(tw.to as i64);
+        }
+        if let Some(search) = &filter.search {
+            q = q.bind(format!("%{search}%"));
+        }
+        q = q.bind(filter.limit as i64 + 1);
+        let rows: Vec<JobSummaryRow> = q.fetch_all(&self.pool).await.map_err(internal)?;
+        let (rows, has_more) = map::paginate(rows, filter.limit);
+        let items: Vec<JobSummary> = rows.into_iter().map(to_summary).collect::<Result<_, _>>()?;
+        let next_cursor = if has_more {
+            items.last().map(|s| {
+                encode_cursor(&Cursor {
+                    created_at: s.created_at,
+                    id: s.id.clone(),
+                })
+            })
+        } else {
+            None
+        };
+        Ok(Page {
+            items,
+            next_cursor,
+            has_more,
+        })
     }
 
-    async fn get_job(&self, _id: &JobId) -> Result<JobDetail, BackendError> {
-        todo!("E2-2b: get_job")
+    async fn get_job(&self, id: &JobId) -> Result<JobDetail, BackendError> {
+        if !map::is_uuid(&id.0) {
+            return Err(BackendError::NotFound(id.to_string()));
+        }
+        let sql = queries::get_job(&self.schema);
+        let row: Option<JobDetailRow> = sqlx::query_as(&sql)
+            .bind(id.0.clone())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(internal)?;
+        let row = row.ok_or_else(|| BackendError::NotFound(id.to_string()))?;
+        to_detail(row)
     }
 
     fn capabilities(&self) -> Capabilities {
