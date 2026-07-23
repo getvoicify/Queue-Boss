@@ -11,6 +11,7 @@ use qb_core::{
     BackendInfo, Clock, JobDetail, JobFilter, JobSummary, Page, QueueBackend, QueueSummary,
     SystemClock,
 };
+use qb_platform::{OsSecretStore, SecretStore};
 use tauri::ipc::Channel;
 use tauri::State;
 
@@ -91,7 +92,8 @@ fn build_app_state() -> AppState {
         "sandbox".to_owned(),
         Arc::new(SandboxBackend::new(clock.clone(), SANDBOX_SEED)) as Arc<dyn QueueBackend>,
     );
-    AppState::new(backends, clock)
+    let secrets: Arc<dyn SecretStore> = Arc::new(OsSecretStore::new("queue-boss"));
+    AppState::new(backends, clock, secrets)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
