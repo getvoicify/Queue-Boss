@@ -591,9 +591,18 @@ mod tests {
         let a = PgConnectConfig::ConnectionString {
             connection_string: "postgres://u:s3cr3t@h/db".to_owned(),
         };
+        let a_debug = format!("{a:?}");
         assert!(
-            !format!("{a:?}").contains("s3cr3t"),
+            !a_debug.contains("s3cr3t"),
             "connection string leaked in Debug"
+        );
+        assert!(
+            a_debug.contains("<redacted>"),
+            "connection string field must render as redacted, not be omitted: {a_debug}"
+        );
+        assert!(
+            a_debug.contains("ConnectionString"),
+            "Debug must render the ConnectionString struct name: {a_debug}"
         );
         let b = PgConnectConfig::Parts {
             host: "h".to_owned(),
@@ -604,9 +613,19 @@ mod tests {
             ssl_mode: "require".to_owned(),
             schema: None,
         };
+        let b_debug = format!("{b:?}");
+        assert!(!b_debug.contains("s3cr3t"), "password leaked in Debug");
         assert!(
-            !format!("{b:?}").contains("s3cr3t"),
-            "password leaked in Debug"
+            b_debug.contains("<redacted>"),
+            "password field must render as redacted, not be omitted: {b_debug}"
+        );
+        assert!(
+            b_debug.contains("Parts"),
+            "Debug must render the Parts struct name: {b_debug}"
+        );
+        assert!(
+            b_debug.contains("\"h\""),
+            "Debug must render the non-secret host field: {b_debug}"
         );
     }
 }
