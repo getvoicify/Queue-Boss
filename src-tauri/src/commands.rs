@@ -206,6 +206,13 @@ pub async fn get_job_impl(
         .map_err(CommandError::from)
 }
 
+pub fn capabilities_impl(
+    state: &AppState,
+    connection_id: &str,
+) -> Result<qb_core::Capabilities, CommandError> {
+    Ok(state.backend(connection_id)?.capabilities())
+}
+
 /// Runtime-agnostic orchestration for `subscribe_counts`: resolve the backend
 /// (an unknown id is a typed `notFound` BEFORE anything is spawned), then run
 /// `spawn` to launch the poll task and register its handle (aborting/replacing
@@ -357,6 +364,20 @@ mod tests {
         let state = state_with_fake();
         let detail = get_job_impl(&state, "sandbox", "abc").await.unwrap();
         assert_eq!(detail.summary.id, JobId::from("abc"));
+    }
+
+    #[test]
+    fn capabilities_impl_returns_the_backend_capabilities() {
+        let state = state_with_fake();
+        let caps = capabilities_impl(&state, "sandbox").unwrap();
+        assert_eq!(caps, FakeBackend::new().capabilities());
+    }
+
+    #[test]
+    fn capabilities_impl_unknown_connection_is_not_found() {
+        let state = state_with_fake();
+        let err = capabilities_impl(&state, "nope").unwrap_err();
+        assert_eq!(err.kind, "notFound");
     }
 
     #[tokio::test]

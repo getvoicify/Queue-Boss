@@ -33,7 +33,49 @@ describe("Queue Boss sandbox live update", () => {
     await enter.waitForDisplayed({ timeout: 30000 });
   });
 
+  it("drills from the jobs list into a job's detail with no extension rows in the sandbox", async () => {
+    const jobsNav = await $('[data-testid="nav-jobs"]');
+    await jobsNav.waitForClickable({ timeout: 30000 });
+    await jobsNav.click();
+
+    // The sandbox serves jobs, so the list renders at least one row.
+    await browser.waitUntil(
+      async () => (await $$('[data-testid="job-row"]')).length > 0,
+      {
+        timeout: 30000,
+        interval: 250,
+        timeoutMsg: "job rows never rendered on the jobs screen",
+      },
+    );
+
+    // Selection lives on a real button in the row (a bare <tr> is not
+    // interactable under WebDriver); click the first row's open button.
+    const firstOpen = await $('[data-testid="job-open"]');
+    await firstOpen.waitForClickable({ timeout: 30000 });
+    await firstOpen.click();
+
+    // The detail panel renders only once the job AND its capabilities resolve.
+    const detail = await $('[data-testid="job-detail"]');
+    await detail.waitForDisplayed({ timeout: 30000 });
+
+    // The sandbox advertises no extensions, so no capability-gated rows appear.
+    const extensionRows = await $$('[data-testid^="job-extension-"]');
+    expect(extensionRows).toHaveLength(0);
+
+    // Return to the overview so the live-counts spec below starts there.
+    const overview = await $('[data-testid="nav-overview"]');
+    await overview.click();
+    const enter = await $('[data-testid="enter-sandbox"]');
+    await enter.waitForDisplayed({ timeout: 30000 });
+  });
+
   it("enters the sandbox and streams live-updating queue counts", async () => {
+    // Resilience: if a prior spec failed before navigating back, land on the
+    // overview first so this spec still starts from the enter-sandbox screen.
+    if (!(await $('[data-testid="enter-sandbox"]').isExisting())) {
+      await $('[data-testid="nav-overview"]').click();
+    }
+
     const enter = await $('[data-testid="enter-sandbox"]');
     await enter.waitForClickable({ timeout: 30000 });
     await enter.click();

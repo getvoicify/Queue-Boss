@@ -1,0 +1,179 @@
+import { formatDate } from "@angular/common";
+import { TestBed } from "@angular/core/testing";
+import { describe, expect, it, vi } from "vitest";
+import { axe } from "vitest-axe";
+import type { JobSummary } from "../../../core/models";
+import { JobListComponent } from "./job-list.component";
+
+const jobs: JobSummary[] = [
+  {
+    id: "job-1",
+    queue: "emails",
+    state: "active",
+    createdAt: 1,
+    startedAt: 2,
+    completedAt: null,
+    attempts: 1,
+    priority: 0,
+  },
+  {
+    id: "job-2",
+    queue: "emails",
+    state: "failed",
+    createdAt: 3,
+    startedAt: null,
+    completedAt: 9,
+    attempts: 3,
+    priority: 5,
+  },
+];
+
+function render(items: JobSummary[], hasMore = false) {
+  const fixture = TestBed.createComponent(JobListComponent);
+  fixture.componentRef.setInput("jobs", items);
+  fixture.componentRef.setInput("hasMore", hasMore);
+  fixture.detectChanges();
+  return fixture;
+}
+
+describe("JobListComponent", () => {
+  it("renders a state-colored row per job carrying id, attempts and priority", () => {
+    const el = render(jobs).nativeElement;
+    const rows = el.querySelectorAll('[data-testid="job-row"]');
+    expect(rows.length).toBe(2);
+    expect(rows[0].getAttribute("data-state")).toBe("active");
+    expect(rows[1].getAttribute("data-state")).toBe("failed");
+    expect(el.textContent).toContain("job-1");
+    expect(el.textContent).toContain("job-2");
+  });
+
+  it("renders the empty state and no rows when there are no jobs", () => {
+    const el = render([]).nativeElement;
+    expect(el.querySelectorAll('[data-testid="job-row"]').length).toBe(0);
+    expect(el.querySelector('[data-testid="job-list-empty"]')).not.toBeNull();
+  });
+
+  it("shows the load-more button only when hasMore and emits loadMore on click", () => {
+    expect(
+      render(jobs, false).nativeElement.querySelector(
+        '[data-testid="jobs-load-more"]',
+      ),
+    ).toBeNull();
+
+    const fixture = render(jobs, true);
+    const loadMore = vi.fn();
+    fixture.componentInstance.loadMore.subscribe(loadMore);
+    const button = fixture.nativeElement.querySelector(
+      '[data-testid="jobs-load-more"]',
+    );
+    expect(button).not.toBeNull();
+    button.click();
+    expect(loadMore).toHaveBeenCalled();
+  });
+
+  it("renders created and started/completed timestamps as human-readable dates, em dash when absent", () => {
+    const createdAt = 1_700_000_000_000;
+    const items: JobSummary[] = [
+      {
+        id: "job-x",
+        queue: "emails",
+        state: "active",
+        createdAt,
+        startedAt: null,
+        completedAt: null,
+        attempts: 1,
+        priority: 0,
+      },
+    ];
+    const row = render(items).nativeElement.querySelector(
+      '[data-testid="job-row"]',
+    );
+    expect(row.textContent).toContain(formatDate(createdAt, "medium", "en-US"));
+    expect(row.textContent).not.toContain(String(createdAt));
+    expect(row.textContent).toContain("—");
+  });
+
+  it("shows the started value when present, else completed, else em dash", () => {
+    const started = 1_700_000_000_000;
+    const completed = 1_700_000_500_000;
+    const items: JobSummary[] = [
+      {
+        id: "started",
+        queue: "emails",
+        state: "active",
+        createdAt: 1,
+        startedAt: started,
+        completedAt: 5,
+        attempts: 1,
+        priority: 0,
+      },
+      {
+        id: "completed",
+        queue: "emails",
+        state: "completed",
+        createdAt: 2,
+        startedAt: null,
+        completedAt: completed,
+        attempts: 1,
+        priority: 0,
+      },
+      {
+        id: "neither",
+        queue: "emails",
+        state: "created",
+        createdAt: 3,
+        startedAt: null,
+        completedAt: null,
+        attempts: 1,
+        priority: 0,
+      },
+    ];
+    const rows = render(items).nativeElement.querySelectorAll(
+      '[data-testid="job-row"]',
+    );
+    const cell = (i: number) => rows[i].querySelectorAll("td")[3];
+    expect(cell(0).textContent).toContain(
+      formatDate(started, "medium", "en-US"),
+    );
+    expect(cell(0).textContent).not.toContain(formatDate(5, "medium", "en-US"));
+    expect(cell(1).textContent).toContain(
+      formatDate(completed, "medium", "en-US"),
+    );
+    expect(cell(2).textContent.trim()).toBe("—");
+  });
+
+  it("emits the selected job id when the open button is clicked", () => {
+    const fixture = render(jobs);
+    const selected = vi.fn();
+    fixture.componentInstance.select.subscribe(selected);
+    fixture.nativeElement.querySelector('[data-testid="job-open"]').click();
+    expect(selected).toHaveBeenCalledWith("job-1");
+  });
+
+  it("exposes selection through a real button naming the job", () => {
+    const button = render(jobs).nativeElement.querySelector(
+      '[data-testid="job-open"]',
+    );
+    expect(button.tagName).toBe("BUTTON");
+    expect(button.getAttribute("aria-label")).toBe("View job job-1");
+  });
+
+  it("emits a state filter when the filter control changes", () => {
+    const fixture = render(jobs);
+    const changed = vi.fn();
+    fixture.componentInstance.filterChange.subscribe(changed);
+    const control = fixture.nativeElement.querySelector(
+      '[data-testid="job-filter-state"]',
+    ) as HTMLSelectElement;
+    control.value = "failed";
+    control.dispatchEvent(new Event("change"));
+    expect(changed).toHaveBeenCalledWith(
+      expect.objectContaining({ states: ["failed"] }),
+    );
+  });
+
+  it("has no accessibility violations", async () => {
+    const el = render(jobs, true).nativeElement as HTMLElement;
+    expect(await axe(el)).toHaveNoViolations();
+  });
+});

@@ -9,8 +9,8 @@ use std::sync::Arc;
 
 use qb_backends::{PgBossBackend, SandboxBackend};
 use qb_core::{
-    BackendError, BackendInfo, Clock, JobDetail, JobFilter, JobSummary, Page, QueueBackend,
-    QueueSummary, SystemClock,
+    BackendError, BackendInfo, Capabilities, Clock, JobDetail, JobFilter, JobSummary, Page,
+    QueueBackend, QueueSummary, SystemClock,
 };
 use qb_platform::{OsSecretStore, SecretStore};
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions, PgSslMode};
@@ -19,8 +19,8 @@ use tauri::ipc::Channel;
 use tauri::State;
 
 use crate::commands::{
-    connect_impl, disconnect_impl, get_job_impl, list_jobs_impl, list_queues_impl,
-    subscribe_counts_impl, test_connection_impl, CommandError, PgConnectConfig,
+    capabilities_impl, connect_impl, disconnect_impl, get_job_impl, list_jobs_impl,
+    list_queues_impl, subscribe_counts_impl, test_connection_impl, CommandError, PgConnectConfig,
 };
 use crate::counts::QueueCounts;
 use crate::poller::{poll_loop, DEFAULT_POLL_INTERVAL_MS};
@@ -61,6 +61,14 @@ async fn get_job(
     state: State<'_, AppState>,
 ) -> Result<JobDetail, CommandError> {
     get_job_impl(state.inner(), &connection_id, &id).await
+}
+
+#[tauri::command]
+async fn capabilities(
+    connection_id: String,
+    state: State<'_, AppState>,
+) -> Result<Capabilities, CommandError> {
+    capabilities_impl(state.inner(), &connection_id)
 }
 
 /// Start (or restart) the per-connection counts poll task, streaming snapshots
@@ -158,6 +166,7 @@ pub fn run() {
             list_queues,
             list_jobs,
             get_job,
+            capabilities,
             subscribe_counts,
             connect_pgboss,
             disconnect

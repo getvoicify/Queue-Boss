@@ -11,6 +11,7 @@ describe("PrimaryNavComponent", () => {
       providers: [
         provideRouter([
           { path: "overview", children: [] },
+          { path: "jobs", children: [] },
           { path: "lifecycle", children: [] },
           { path: "connect", children: [] },
         ]),
@@ -31,6 +32,9 @@ describe("PrimaryNavComponent", () => {
     const connect = el.querySelector('[data-testid="open-connect"]');
     expect(connect.textContent.trim()).toBe("Connect");
     expect(connect.getAttribute("href")).toBe("/connect");
+    const jobs = el.querySelector('[data-testid="nav-jobs"]');
+    expect(jobs.textContent.trim()).toBe("Jobs");
+    expect(jobs.getAttribute("href")).toBe("/jobs");
   });
 
   it("marks the active link and leaves the inactive one unmarked", async () => {
