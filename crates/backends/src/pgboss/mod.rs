@@ -38,9 +38,14 @@ impl PgBossBackend {
     /// only flavor implemented in P0; `test_connection` gates the live schema
     /// version before the connect flow (E2-4) trusts this backend.
     pub fn new(pool: PgPool) -> Self {
+        Self::with_schema(pool, DEFAULT_SCHEMA)
+    }
+
+    /// Build a backend over `pool` for a caller-supplied schema.
+    pub fn with_schema(pool: PgPool, schema: impl Into<String>) -> Self {
         Self {
             pool,
-            schema: DEFAULT_SCHEMA.to_owned(),
+            schema: schema.into(),
             flavor: SchemaFlavor::V10,
         }
     }
@@ -203,5 +208,19 @@ mod tests {
         assert!(caps.singleton);
         assert!(caps.dead_letter);
         assert_eq!(caps.extensions, vec!["singletonKey", "policy", "priority"]);
+    }
+
+    #[tokio::test]
+    async fn with_schema_sets_the_schema_field() {
+        let pool = PgPool::connect_lazy("postgres://user:pass@localhost/db").unwrap();
+        let backend = PgBossBackend::with_schema(pool, "custom_schema");
+        assert_eq!(backend.schema, "custom_schema");
+    }
+
+    #[tokio::test]
+    async fn new_uses_the_default_schema() {
+        let pool = PgPool::connect_lazy("postgres://user:pass@localhost/db").unwrap();
+        let backend = PgBossBackend::new(pool);
+        assert_eq!(backend.schema, "pgboss");
     }
 }
