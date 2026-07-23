@@ -105,6 +105,22 @@ describe("QueueBackendService", () => {
     });
   });
 
+  it("invokes capabilities with the camelCase connectionId and maps the payload", async () => {
+    const caps = {
+      priority: true,
+      singleton: false,
+      deadLetter: true,
+      extensions: [],
+    };
+    invokeMock.mockResolvedValueOnce(caps);
+    const result = await service.capabilities("sandbox");
+    expect(lastInvoke()).toEqual({
+      command: "capabilities",
+      args: { connectionId: "sandbox" },
+    });
+    expect(result).toEqual(caps);
+  });
+
   it("wires a Channel for subscribe_counts and surfaces pushes on a read-only signal", () => {
     const subscription = service.subscribeCounts("sandbox");
 

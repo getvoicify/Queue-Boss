@@ -2,6 +2,7 @@ import { Injectable, type Signal, signal } from "@angular/core";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type {
   BackendInfo,
+  Capabilities,
   CommandError,
   CommandErrorKind,
   JobDetail,
@@ -47,6 +48,10 @@ export class QueueBackendService {
 
   getJob(connectionId: string, id: string): Promise<JobDetail> {
     return this.#invoke<JobDetail>("get_job", { connectionId, id });
+  }
+
+  capabilities(connectionId: string): Promise<Capabilities> {
+    return this.#invoke<Capabilities>("capabilities", { connectionId });
   }
 
   subscribeCounts(connectionId: string): CountsSubscription {
