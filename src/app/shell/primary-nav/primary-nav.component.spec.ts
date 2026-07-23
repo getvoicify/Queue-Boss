@@ -10,6 +10,7 @@ describe("PrimaryNavComponent", () => {
       imports: [PrimaryNavComponent],
       providers: [
         provideRouter([
+          { path: "home", children: [] },
           { path: "overview", children: [] },
           { path: "jobs", children: [] },
           { path: "lifecycle", children: [] },
@@ -19,10 +20,13 @@ describe("PrimaryNavComponent", () => {
     }).compileComponents();
   });
 
-  it("renders labelled links to Overview and Lifecycle", () => {
+  it("renders labelled links to Home, Overview, Lifecycle, Connect and Jobs", () => {
     const fixture = TestBed.createComponent(PrimaryNavComponent);
     fixture.detectChanges();
     const el = fixture.nativeElement;
+    const home = el.querySelector('[data-testid="nav-home"]');
+    expect(home.textContent.trim()).toBe("Home");
+    expect(home.getAttribute("href")).toBe("/home");
     const overview = el.querySelector('[data-testid="nav-overview"]');
     const lifecycle = el.querySelector('[data-testid="nav-lifecycle"]');
     expect(overview.textContent.trim()).toBe("Overview");

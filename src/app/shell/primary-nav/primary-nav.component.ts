@@ -10,6 +10,15 @@ import { RouterLink, RouterLinkActive } from "@angular/router";
     <nav class="primary-nav" aria-label="Primary">
       <a
         class="primary-nav__link"
+        data-testid="nav-home"
+        routerLink="/home"
+        routerLinkActive="primary-nav__link--active"
+        ariaCurrentWhenActive="page"
+      >
+        Home
+      </a>
+      <a
+        class="primary-nav__link"
         data-testid="nav-overview"
         routerLink="/overview"
         routerLinkActive="primary-nav__link--active"

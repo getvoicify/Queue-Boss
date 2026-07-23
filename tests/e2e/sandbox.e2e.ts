@@ -1,5 +1,6 @@
-// Live-update e2e (extends C1's launch-smoke): boot -> Enter Sandbox -> queue
-// rows -> a per-state count changes across a poll.
+// Home-hero e2e (extends C1's launch-smoke): boot -> lifecycle hero (default
+// route "") -> the 7-node live aggregate + /overview nav reachability, then the
+// sandbox live-update flow (connect form, jobs drill-down, enter-sandbox counts).
 // Runs on C2's Linux e2e job (tauri-driver + xvfb); tauri-driver is Linux/Windows only.
 //
 // Timeouts are generous: the external tauri-driver provider has no embedded
@@ -12,6 +13,61 @@
 // (C7 vitest-axe) cannot run contrast rules. C7's jsdom axe already covers
 // structure/labels/keyboard; color-contrast is verified by the documented
 // manual dark-theme contrast check recorded in the PR body.
+// Launch now lands on the lifecycle hero (default route "" -> home). The
+// node-select -> annotation behavior is proven in the container unit test
+// (jsdom): the E3-2 node is a role=button div over the SVG, not reliably
+// WDIO-clickable under tauri-driver (#47 Step-1 pin), so e2e stays scoped to
+// launch-on-hero + live aggregate flow + nav reachability.
+describe("Queue Boss home hero", () => {
+  it("launches on the hero showing the seven lifecycle nodes with live flow", async () => {
+    const hero = await $('[data-testid="home-hero"]');
+    await hero.waitForDisplayed({ timeout: 30000 });
+
+    // The hero renders once the sandbox streams; assert the full 7-node shape.
+    await browser.waitUntil(
+      async () => (await $$('[data-testid^="lifecycle-node-"]')).length === 7,
+      {
+        timeout: 30000,
+        interval: 250,
+        timeoutMsg: "the hero never rendered its seven lifecycle nodes",
+      },
+    );
+
+    // The all-queues aggregate is live: the completed count keeps moving
+    // poll-to-poll (the same continuous-queue signal the overview asserts on).
+    const completed = await $(
+      '[data-testid="lifecycle-node-completed"] .lifecycle-diagram__count',
+    );
+    await completed.waitForExist({ timeout: 30000 });
+    const initial = await completed.getText();
+    await browser.waitUntil(
+      async () => (await completed.getText()) !== initial,
+      {
+        timeout: 20000,
+        interval: 500,
+        timeoutMsg:
+          "hero aggregate completed count did not change across a poll",
+      },
+    );
+  });
+
+  it("keeps /overview reachable from the hero via the primary nav", async () => {
+    const overview = await $('[data-testid="nav-overview"]');
+    await overview.waitForClickable({ timeout: 30000 });
+    await overview.click();
+
+    // Overview still gates on Enter Sandbox; the hero does not.
+    const enter = await $('[data-testid="enter-sandbox"]');
+    await enter.waitForDisplayed({ timeout: 30000 });
+
+    // Return to the hero so the live-update describe below starts on overview
+    // via its own nav (it already navigates via nav-overview / enter-sandbox).
+    const home = await $('[data-testid="nav-home"]');
+    await home.click();
+    await $('[data-testid="home-hero"]').waitForDisplayed({ timeout: 30000 });
+  });
+});
+
 describe("Queue Boss sandbox live update", () => {
   it("opens the connect form while the sandbox status chip stays visible", async () => {
     const open = await $('[data-testid="open-connect"]');
