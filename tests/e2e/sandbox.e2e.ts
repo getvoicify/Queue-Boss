@@ -13,6 +13,26 @@
 // structure/labels/keyboard; color-contrast is verified by the documented
 // manual dark-theme contrast check recorded in the PR body.
 describe("Queue Boss sandbox live update", () => {
+  it("opens the connect form while the sandbox status chip stays visible", async () => {
+    const open = await $('[data-testid="open-connect"]');
+    await open.waitForClickable({ timeout: 30000 });
+    await open.click();
+
+    const form = await $('[data-testid="connect-form"]');
+    await form.waitForDisplayed({ timeout: 30000 });
+
+    // The connect form and the always-present sandbox status chip coexist —
+    // opening connect does not tear down the sandbox connection.
+    const sandboxChip = await $('[data-testid="connection-status-sandbox"]');
+    await sandboxChip.waitForDisplayed({ timeout: 30000 });
+
+    // Return to the overview so the live-counts spec below starts there.
+    const overview = await $('[data-testid="nav-overview"]');
+    await overview.click();
+    const enter = await $('[data-testid="enter-sandbox"]');
+    await enter.waitForDisplayed({ timeout: 30000 });
+  });
+
   it("enters the sandbox and streams live-updating queue counts", async () => {
     const enter = await $('[data-testid="enter-sandbox"]');
     await enter.waitForClickable({ timeout: 30000 });
