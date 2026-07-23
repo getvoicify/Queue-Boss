@@ -89,6 +89,8 @@ jobs:
           set -o pipefail
           cargo test -p qb-backends --features pg-integration -- --nocapture 2>&1 | tee pg_it.log
           grep -q 'pg_integration_sentinel ... ok' pg_it.log || { echo 'PG integration tests did not run (feature off?)'; exit 1; }
+          cargo test -p queue-boss --features pg-integration -- --nocapture 2>&1 | tee pg_it_queue_boss.log
+          grep -q 'pg_integration_sentinel ... ok' pg_it_queue_boss.log || { echo 'queue-boss PG integration tests did not run (feature off?)'; exit 1; }
 
   build:
     strategy:
