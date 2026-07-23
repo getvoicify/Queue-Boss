@@ -418,6 +418,7 @@ mod tests {
                 | (Failed, Retry)
                 | (Failed, DeadLetter)
                 | (Retry, Active)
+                | (Retry, Cancelled)
         )
     }
 
@@ -525,6 +526,28 @@ mod tests {
             ]
         );
         assert_ordered_valid_chain(&tl, JobState::DeadLetter);
+    }
+
+    #[test]
+    fn mirror_accepts_every_authoritative_transition() {
+        use JobState::*;
+        let authoritative = [
+            (Created, Active),
+            (Created, Cancelled),
+            (Active, Completed),
+            (Active, Failed),
+            (Active, Cancelled),
+            (Failed, Retry),
+            (Failed, DeadLetter),
+            (Retry, Active),
+            (Retry, Cancelled),
+        ];
+        for (from, to) in authoritative {
+            assert!(
+                is_valid_transition(from, to),
+                "{from:?} -> {to:?} must be accepted"
+            );
+        }
     }
 
     #[test]
