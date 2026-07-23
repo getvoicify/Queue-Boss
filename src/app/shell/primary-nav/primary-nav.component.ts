@@ -19,6 +19,15 @@ import { RouterLink, RouterLinkActive } from "@angular/router";
       </a>
       <a
         class="primary-nav__link"
+        data-testid="nav-jobs"
+        routerLink="/jobs"
+        routerLinkActive="primary-nav__link--active"
+        ariaCurrentWhenActive="page"
+      >
+        Jobs
+      </a>
+      <a
+        class="primary-nav__link"
         data-testid="nav-lifecycle"
         routerLink="/lifecycle"
         routerLinkActive="primary-nav__link--active"
