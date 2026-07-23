@@ -26,7 +26,13 @@ qb-core = { path = "../crates/core" }
 qb-backends = { path = "../crates/backends" }
 qb-platform = { path = "../crates/platform" }
 tokio = { version = "1", features = ["rt", "time", "macros"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres"] }
 
 [dev-dependencies]
-tokio = { version = "1", features = ["test-util", "rt", "macros", "time"] }
+tokio = { version = "1", features = ["test-util", "rt", "rt-multi-thread", "macros", "time"] }
 async-trait = "0.1"
+testcontainers = "0.27"
+testcontainers-modules = { version = "0.15", features = ["postgres"] }
+
+[features]
+pg-integration = ["qb-backends/pg-integration"]

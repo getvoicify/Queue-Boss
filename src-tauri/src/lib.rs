@@ -1,23 +1,26 @@
-mod commands;
+pub mod commands;
 mod counts;
 mod poller;
-mod state;
+pub mod state;
 
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 
-use qb_backends::SandboxBackend;
+use qb_backends::{PgBossBackend, SandboxBackend};
 use qb_core::{
-    BackendInfo, Clock, JobDetail, JobFilter, JobSummary, Page, QueueBackend, QueueSummary,
-    SystemClock,
+    BackendError, BackendInfo, Clock, JobDetail, JobFilter, JobSummary, Page, QueueBackend,
+    QueueSummary, SystemClock,
 };
 use qb_platform::{OsSecretStore, SecretStore};
+use sqlx::postgres::{PgConnectOptions, PgPoolOptions, PgSslMode};
+use sqlx::PgPool;
 use tauri::ipc::Channel;
 use tauri::State;
 
 use crate::commands::{
-    get_job_impl, list_jobs_impl, list_queues_impl, subscribe_counts_impl, test_connection_impl,
-    CommandError,
+    connect_impl, disconnect_impl, get_job_impl, list_jobs_impl, list_queues_impl,
+    subscribe_counts_impl, test_connection_impl, CommandError, PgConnectConfig,
 };
 use crate::counts::QueueCounts;
 use crate::poller::{poll_loop, DEFAULT_POLL_INTERVAL_MS};
@@ -84,6 +87,55 @@ async fn subscribe_counts(
     })
 }
 
+/// Build a lazy pg-boss connection pool from a config. Synchronous (no I/O), so
+/// nothing is held across a lock. Credentials never appear in a returned error.
+fn build_pool(config: &PgConnectConfig) -> Result<PgPool, BackendError> {
+    match config {
+        PgConnectConfig::ConnectionString { connection_string } => {
+            PgPool::connect_lazy(connection_string)
+                .map_err(|_| BackendError::Connection("invalid connection string".to_owned()))
+        }
+        PgConnectConfig::Parts {
+            host,
+            port,
+            database,
+            user,
+            password,
+            ssl_mode,
+            ..
+        } => {
+            let ssl = PgSslMode::from_str(ssl_mode)
+                .map_err(|_| BackendError::Connection("invalid sslMode".to_owned()))?;
+            let opts = PgConnectOptions::new()
+                .host(host)
+                .port(*port)
+                .database(database)
+                .username(user)
+                .password(password)
+                .ssl_mode(ssl);
+            Ok(PgPoolOptions::new().connect_lazy_with(opts))
+        }
+    }
+}
+
+fn build_pgboss_backend(config: &PgConnectConfig) -> Result<Arc<dyn QueueBackend>, BackendError> {
+    let pool = build_pool(config)?;
+    Ok(Arc::new(PgBossBackend::with_schema(pool, config.schema())) as Arc<dyn QueueBackend>)
+}
+
+#[tauri::command]
+async fn connect_pgboss(
+    config: PgConnectConfig,
+    state: State<'_, AppState>,
+) -> Result<ConnectionId, CommandError> {
+    connect_impl(state.inner(), &config, build_pgboss_backend).await
+}
+
+#[tauri::command]
+async fn disconnect(connection_id: String, state: State<'_, AppState>) -> Result<(), CommandError> {
+    disconnect_impl(state.inner(), &connection_id)
+}
+
 /// Assemble the Tauri-managed application state with the default backends.
 fn build_app_state() -> AppState {
     let clock: Arc<dyn Clock> = Arc::new(SystemClock);
@@ -106,7 +158,9 @@ pub fn run() {
             list_queues,
             list_jobs,
             get_job,
-            subscribe_counts
+            subscribe_counts,
+            connect_pgboss,
+            disconnect
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -128,5 +182,32 @@ mod tests {
             .expect("sandbox backend must report healthy");
         assert_eq!(info.name, "sandbox");
         assert!(info.healthy);
+    }
+
+    #[tokio::test]
+    async fn build_pool_accepts_a_connection_string() {
+        let config = PgConnectConfig::ConnectionString {
+            connection_string: "postgres://u:p@localhost/db".to_owned(),
+        };
+        assert!(build_pool(&config).is_ok());
+    }
+
+    #[test]
+    fn build_pool_rejects_an_invalid_ssl_mode() {
+        let config = PgConnectConfig::Parts {
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "db".to_owned(),
+            user: "u".to_owned(),
+            password: "s3cr3t".to_owned(),
+            ssl_mode: "bogus".to_owned(),
+            schema: None,
+        };
+        let err = build_pool(&config).expect_err("an invalid sslMode must fail");
+        assert!(matches!(err, BackendError::Connection(_)));
+        let BackendError::Connection(message) = &err else {
+            unreachable!()
+        };
+        assert!(!message.contains("s3cr3t"), "leaked credential: {message}");
     }
 }

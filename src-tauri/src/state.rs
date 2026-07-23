@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use qb_core::{Clock, QueueBackend};
 use qb_platform::SecretStore;
@@ -13,10 +13,9 @@ pub type ConnectionId = String;
 /// poller stamps snapshots with, the live poll tasks keyed by connection, and
 /// the OS-keychain-backed secret store for connection credentials.
 pub struct AppState {
-    pub backends: HashMap<ConnectionId, Arc<dyn QueueBackend>>,
+    backends: RwLock<HashMap<ConnectionId, Arc<dyn QueueBackend>>>,
     pub clock: Arc<dyn Clock>,
     pub tasks: Mutex<HashMap<ConnectionId, AbortHandle>>,
-    #[allow(dead_code)] // read by connection-credential commands in a later child.
     pub secrets: Arc<dyn SecretStore>,
 }
 
@@ -27,19 +26,38 @@ impl AppState {
         secrets: Arc<dyn SecretStore>,
     ) -> Self {
         Self {
-            backends,
+            backends: RwLock::new(backends),
             clock,
             tasks: Mutex::new(HashMap::new()),
             secrets,
         }
     }
 
-    /// Resolve the backend for `id`; an unknown id is a typed `notFound`.
+    /// Resolve the backend for `id`; an unknown id is a typed `notFound`. The
+    /// read guard is dropped before returning — never held across an `.await`.
     pub fn backend(&self, id: &str) -> Result<Arc<dyn QueueBackend>, CommandError> {
         self.backends
+            .read()
+            .expect("backends rwlock poisoned")
             .get(id)
             .cloned()
             .ok_or_else(CommandError::unknown_connection)
+    }
+
+    /// Register (or replace) the backend resolvable under `id`.
+    pub fn register(&self, id: ConnectionId, backend: Arc<dyn QueueBackend>) {
+        self.backends
+            .write()
+            .expect("backends rwlock poisoned")
+            .insert(id, backend);
+    }
+
+    /// Drop the backend registered under `id`, if any (connection removal).
+    pub fn remove_backend(&self, id: &str) {
+        self.backends
+            .write()
+            .expect("backends rwlock poisoned")
+            .remove(id);
     }
 
     /// Register a poll task for `id`, aborting and replacing any existing one.
@@ -160,5 +178,16 @@ mod tests {
         let joined = task.await;
         assert!(joined.is_err() && joined.unwrap_err().is_cancelled());
         assert!(state.tasks.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn register_then_remove_backend_round_trips() {
+        let state = empty_state();
+
+        state.register("x".to_owned(), Arc::new(FakeBackend::new()));
+        assert!(state.backend("x").is_ok());
+
+        state.remove_backend("x");
+        assert!(state.backend("x").is_err());
     }
 }
