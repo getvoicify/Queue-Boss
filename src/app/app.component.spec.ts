@@ -22,18 +22,25 @@ describe("AppComponent", () => {
     expect(shell).not.toBeNull();
   });
 
-  it("binds the active connection's status into the shell", () => {
+  it("renders a per-connection status chip from the facade entries", () => {
     TestBed.overrideProvider(ConnectionsFacade, {
       useValue: {
-        activeConnectionId: signal("sandbox").asReadonly(),
-        statusFor: () => ({ status: "connecting" }),
+        entries: signal([
+          { id: "sandbox", status: "connecting" as const },
+        ]).asReadonly(),
       },
     });
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
-    const label = fixture.nativeElement.querySelector(
-      '[data-testid="connection-label"]',
+    const chip = fixture.nativeElement.querySelector(
+      '[data-testid="connection-status-sandbox"]',
     );
-    expect(label.textContent.trim()).toBe("Connecting…");
+    expect(chip).not.toBeNull();
+    expect(chip.getAttribute("data-status")).toBe("connecting");
+    expect(
+      fixture.nativeElement
+        .querySelector('[data-testid="connection-label"]')
+        .textContent.trim(),
+    ).toBe("Connecting…");
   });
 });
